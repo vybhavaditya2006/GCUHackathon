@@ -15,7 +15,7 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phase 1 (database, RLS, ledger, seed) is done. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phases 1 (database, RLS, ledger, seed) and 2 (charter engine) are done. Features are built phase by phase; see `docs/KICKOFF.md`.
 
 ## Tech stack
 

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AgentPanel, type AgentDraftView } from "@/components/AgentPanel";
 import { JudgeNote } from "@/components/JudgeNote";
 import { Pill, type PillTone } from "@/components/Pill";
 import { PostButton } from "@/components/PostButton";
@@ -118,6 +119,32 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
   const canUpload = onCurrentCharter && membership.role === "student" && openMilestones.length > 0;
   const canReview = onCurrentCharter && membership.role === "expert";
   const canSubmit = onCurrentCharter && (membership.isLead || membership.role === "expert");
+
+  // RLS returns only the drafts this user owns (admins see all; they are filtered out here).
+  const { data: draftRows } = await db
+    .from("agent_drafts")
+    .select("id, agent, milestone_id, output, status, tokens_in, tokens_out, cost")
+    .eq("project_id", id)
+    .eq("owner_id", user.id)
+    .in("agent", ["research", "coding"])
+    .order("created_at", { ascending: false })
+    .limit(5);
+  const drafts: AgentDraftView[] = (draftRows ?? []).map((d) => {
+    const out = (d.output ?? {}) as { title?: string; summary?: string; content?: string };
+    const m = milestones.find((x) => x.id === d.milestone_id);
+    return {
+      id: d.id,
+      agent: d.agent,
+      title: out.title ?? `${d.agent} draft`,
+      summary: out.summary ?? "",
+      content: out.content ?? "",
+      // Seeded drafts have no text, so there is nothing to approve from them.
+      status: out.content ? d.status : "approved",
+      tokens: d.tokens_in + d.tokens_out,
+      cost: Number(d.cost),
+      milestoneLabel: m ? `Milestone ${m.position}` : "No milestone",
+    };
+  });
 
   const held = escrows.filter((e) => e.status === "funded").reduce((sum, e) => sum + Number(e.amount), 0);
   const released = escrows.filter((e) => e.status === "released").reduce((sum, e) => sum + Number(e.amount), 0);
@@ -304,6 +331,21 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
               No milestone is open for work right now: each one is either waiting to be funded or already submitted.
             </p>
           )}
+        </section>
+      )}
+
+      {onCurrentCharter && membership.role === "student" && (
+        <section className="rounded-lg border border-border bg-card p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold">AI agent drafts</h2>
+            <Pill tone="ai">Drafts only: you approve, you get the credit</Pill>
+          </div>
+          <div className="mt-3">
+            <AgentPanel
+              milestones={openMilestones.map((m) => ({ id: m.id, label: `${m.position}. ${m.title}` }))}
+              drafts={drafts}
+            />
+          </div>
         </section>
       )}
 

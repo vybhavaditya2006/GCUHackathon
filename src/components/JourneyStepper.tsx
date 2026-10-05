@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 // The six sheets of the PoC. Flip `ready` to true when a page is built.
 const steps = [
   { label: "Discovery", segment: "", ready: true },
-  { label: "Scoping & Matching", segment: "scope", ready: false },
+  { label: "Scoping & Matching", segment: "scope", ready: true },
   { label: "Workspace", segment: "workspace", ready: true },
   { label: "Ledger", segment: "ledger", ready: true },
   { label: "Credit & Payment", segment: "payouts", ready: true },

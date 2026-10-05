@@ -15,13 +15,13 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Still to build: AI gateway, scoping and matching (Phase 5), final record, demo controls. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Still to build: the review agent and the admin demo controls for corner cases. Features are built phase by phase; see `docs/KICKOFF.md`.
 
 ## Tech stack
 
 - Next.js (App Router) + TypeScript, Tailwind CSS, shadcn/ui
 - Supabase: Postgres, Auth (email + password), Storage, row-level security
-- Groq LLM API (Llama model, id from `GROQ_MODEL`)
+- Groq LLM API (model id from `GROQ_MODEL`; currently `openai/gpt-oss-120b`, because no Llama chat model is offered to our Groq key)
 - Zod for validating API bodies and LLM JSON replies
 - Vitest for unit tests
 
@@ -62,7 +62,8 @@ In the Supabase dashboard, open **SQL Editor**. For each file, paste the whole f
 
 1. `supabase/migrations/001_schema.sql`: tables, RLS, ledger functions, state-changing functions.
 2. `supabase/migrations/002_work_functions.sql`: review and milestone-submission functions.
-3. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
+3. `supabase/migrations/003_agent_functions.sql`: agent drafts, scoping approval and invitations.
+4. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
 
 Every seeded user signs in with the password `demo1234`, for example `anjali@charter.test` (sponsor),
 `kiran@charter.test` (expert), `priya@charter.test` (student) and `admin@charter.test` (admin).
@@ -89,6 +90,9 @@ src/lib/escrow.ts     fund, and release (accept a milestone, store payouts + rec
 src/lib/ledgerView.ts pure: ledger rows -> timeline rows and reviewed weights
 src/lib/integrity.ts  SHA-256 of artefacts + mocked similarity score
 src/lib/work.ts       contributions, reviews, milestone submission
+src/lib/matchingScore.ts pure: hard filters + score out of 100
+src/lib/matching.ts   filters -> score -> LLM explanation, and invitations
+src/lib/drafts.ts     what each agent is asked, and draft approval
 src/lib/engine/       computeSplit + tests
 src/lib/agents/       LLM gateway, Groq client, prompts
 src/components/       shared UI
@@ -106,7 +110,7 @@ Declared as required by the hackathon rules.
 |---|---|
 | Claude Code (Anthropic) | Scaffolding, writing and reviewing application code, SQL, tests and docs |
 | Claude (Anthropic, chat/Cowork) | Planning, the project spec (`CLAUDE.md`), the paper PoC and the UI mock-ups in `docs/design/` |
-| Groq-hosted Llama model | Runtime LLM inside the product (scoping, matching explanations, research/coding and review agents) |
+| Groq-hosted open-weight model (`openai/gpt-oss-120b`, set in `GROQ_MODEL`) | Runtime LLM inside the product (scoping, matching explanations, research/coding and review agents) |
 
 <!-- Add any other AI tool a team member uses, before the final submission. -->
 
@@ -122,6 +126,9 @@ Every mock is listed here with what production would use.
 | `verified`, `is_minor` and `guardian_consent` are plain flags set by the seed | KYC / institution verification and recorded guardian consent |
 | Seeded history is inserted directly with backdated ledger timestamps, and seeded agent runs never called an LLM | All history comes from real use; no path can set a ledger timestamp |
 | The similarity check compares an upload with one built-in text (`src/lib/integrity.ts`); `docs/demo/copied_cnn_notes.md` trips it | A real plagiarism and AI-content detection service |
+| Agent cost is tokens x a made-up rupee price list (`src/lib/agents/prompt.ts`) | The provider's real billing, debited from the AI reserve |
+| The research / coding agent reads the project summary, the brief and notes the member pastes in | Retrieval over this project's stored files only |
+| Matching falls back to a fixed-wording reason when the LLM is unavailable (labelled on the page) | Same fallback, plus retries and monitoring |
 | Uploaded files are fingerprinted (SHA-256) and then discarded; only the name and hash are kept | The file stored in a private Supabase Storage bucket with per-member access |
 | Artefact fingerprints in the seed are hashes of a file name, not of a file | SHA-256 of the uploaded file in private storage |
 | Track record (`proven_skills`, `completed_projects`) is stored on the profile | Derived from reviewed ledger entries |

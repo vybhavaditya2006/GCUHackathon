@@ -42,6 +42,7 @@ beforeAll(async () => {
   await db.exec(read("./supabase_stub.sql"));
   await db.exec(read("../migrations/001_schema.sql"));
   await db.exec(read("../migrations/002_work_functions.sql"));
+  await db.exec(read("../migrations/003_agent_functions.sql"));
   await db.exec(read("../seed.sql"));
 }, 120_000);
 
@@ -226,6 +227,63 @@ describe("state-changing functions (each writes its ledger entry)", () => {
     expect(flag).toEqual({ event: "SIMILARITY_FLAGGED", actor: "agent:integrity", on_behalf_of: MEERA });
   });
 
+  it("agent drafts: need a human owner on the team, and only approval makes a contribution", async () => {
+    const record = (owner: string, agent = "research") =>
+      one<{ r: { draft_id: string; seq: number } }>(
+        `select record_agent_draft($1, $2, $3, $4, 'pasted notes', '{"content":"draft"}'::jsonb, 'test-model', 120, 80, 1, 'Draft note') as r`,
+        [P1, M2, agent, owner],
+      );
+    await expect(record(ROHAN)).rejects.toThrow(/active member who accepted/);
+    await expect(record(MEERA, "made_up")).rejects.toThrow(/unknown agent/);
+
+    const draft = await record(MEERA);
+    const action = await one<{ event: string; actor: string; on_behalf_of: string }>(
+      "select event, actor, on_behalf_of from ledger where seq = $1", [draft.r.seq]);
+    expect(action).toEqual({ event: "AGENT_ACTION", actor: "agent:research", on_behalf_of: MEERA });
+    const before = await one<{ n: number }>(
+      "select count(*)::int as n from contributions where agent_used = 'research' and milestone_id = $1", [M2]);
+    expect(before.n).toBe(0); // a draft is not a contribution
+
+    const approve = (owner: string) =>
+      one<{ r: { contribution_id: string } }>(
+        "select approve_agent_draft($1, $2, 'Agent note', 'research_draft.md', $3, 0.8, 'Drafted by the agent; I checked it.', true) as r",
+        [draft.r.draft_id, owner, SHA],
+      );
+    await expect(approve(ARJUN)).rejects.toThrow(/only the human who owns/);
+    const approved = await approve(MEERA);
+    const made = await one<{ author_id: string; agent_used: string; ai_share: number; status: string }>(
+      `select c.author_id, c.agent_used, c.ai_share::float as ai_share, d.status
+         from contributions c join agent_drafts d on d.contribution_id = c.id where c.id = $1`,
+      [approved.r.contribution_id],
+    );
+    expect(made).toEqual({ author_id: MEERA, agent_used: "research", ai_share: 0.8, status: "approved" });
+    await expect(approve(MEERA)).rejects.toThrow(/already approved/);
+  });
+
+  it("scoping approval and invitations are sponsor-only and land in the ledger", async () => {
+    const scope = await one<{ r: { draft_id: string } }>(
+      `select record_agent_draft($1, null, 'scoping', $2, 'summary + brief', '{}'::jsonb, 'test-model', 10, 10, 0, 'Proposed scope') as r`,
+      [P1, ANJALI],
+    );
+    const milestones = JSON.stringify([{ title: "Extra milestone", requiredSkills: ["CNN"], acceptanceCriteria: "Works" }]);
+    await expect(
+      db.query("select approve_scoping_draft($1, $2, $3::jsonb)", [scope.r.draft_id, PRIYA, milestones]),
+    ).rejects.toThrow(/only the project sponsor/);
+    const ok = await one<{ r: { milestones_created: boolean; seq: number } }>(
+      "select approve_scoping_draft($1, $2, $3::jsonb) as r", [scope.r.draft_id, ANJALI, milestones]);
+    expect(ok.r.milestones_created).toBe(false); // the project already has milestones
+    const entry = await one<{ event: string }>("select event from ledger where seq = $1", [ok.r.seq]);
+    expect(entry.event).toBe("MILESTONES_APPROVED");
+
+    await expect(db.query("select invite_member($1, $2, $3, 'student')", [P1, PRIYA, DEV])).rejects.toThrow(/only the project sponsor/);
+    await expect(db.query("select invite_member($1, $2, $3, 'student')", [P1, ANJALI, MEERA])).rejects.toThrow(/already invited or on the team/);
+    await expect(db.query("select invite_member($1, $2, $3, 'expert')", [P1, ANJALI, DEV])).rejects.toThrow(/not a registered expert/);
+    await db.query("select invite_member($1, $2, $3, 'student')", [P1, ANJALI, DEV]);
+    const invited = await one<{ status: string }>(
+      "select status from memberships where project_id = $1 and user_id = $2", [P1, DEV]);
+    expect(invited.status).toBe("invited");
+  });
+
   it("add_review and submit_milestone: expert reviews, the lead submits, reviews then close", async () => {
     const clean = await one<{ id: string }>(
       "select id from contributions where milestone_id = $1 and not flagged order by created_at limit 1", [M2]);
@@ -317,6 +375,7 @@ describe("reset.sql", () => {
     await db.exec(read("../reset.sql"));
     await db.exec(read("../migrations/001_schema.sql"));
     await db.exec(read("../migrations/002_work_functions.sql"));
+  await db.exec(read("../migrations/003_agent_functions.sql"));
     await db.exec(read("../seed.sql"));
     expect(await verify()).toMatchObject({ ok: true, checked: 46 });
   });

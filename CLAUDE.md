@@ -22,7 +22,7 @@ At every step the demo must answer: **who did what, who could see what, and why 
 ## Tech stack
 - **Next.js (App Router) + TypeScript**, Tailwind CSS, shadcn/ui
 - **Supabase**: Postgres, Auth (email + password), Storage (private buckets), row-level security (RLS)
-- **Groq** LLM API (Llama model; model id from the `GROQ_MODEL` env var; check console.groq.com/docs/models for a current id)
+- **Groq** LLM API (Llama model; model id from the `GROQ_MODEL` env var; check console.groq.com/docs/models for a current id). Note (6 Oct): our key is offered no Llama chat model, so `GROQ_MODEL` is `openai/gpt-oss-120b`.
 - **Zod** for validating every API body and every LLM JSON reply
 - **Vitest** for unit tests
 - Dev machine: **Windows / PowerShell**. Use cross-platform npm scripts (no bash-only syntax).

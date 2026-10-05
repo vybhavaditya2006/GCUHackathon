@@ -10,11 +10,14 @@ export function PostButton({
   label,
   busyLabel,
   tone = "primary",
+  body,
 }: {
   url: string;
   label: string;
   busyLabel: string;
   tone?: "primary" | "money";
+  /** Optional JSON body. */
+  body?: Record<string, unknown>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -24,7 +27,10 @@ export function PostButton({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(url, { method: "POST" });
+      const res = await fetch(url, {
+        method: "POST",
+        ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         setError(body?.error ?? "That did not work.");

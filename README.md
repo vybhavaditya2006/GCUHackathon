@@ -15,7 +15,7 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phases 1 (database, RLS, ledger, seed) and 2 (charter engine) are done. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done. Features are built phase by phase; see `docs/KICKOFF.md`.
 
 ## Tech stack
 
@@ -78,6 +78,11 @@ small stand-in for Supabase's roles and auth schema. It does not touch the real 
 src/app/              pages + /api route handlers
 src/lib/db.ts         Supabase server clients (service role, and per-user with RLS)
 src/lib/db.browser.ts Supabase browser client (publishable key)
+src/proxy.ts          refreshes the session cookie; sends signed-out visitors to /login
+src/lib/auth.ts       current user + profile (server)
+src/lib/access.ts     pure "who can see what" rules that explain the brief lock
+src/lib/ledger.ts     append(), verify() over the SQL functions
+src/lib/charter.ts    accept (publish / new version come later)
 src/lib/engine/       computeSplit + tests
 src/lib/agents/       LLM gateway, Groq client, prompts
 src/components/       shared UI
@@ -107,6 +112,7 @@ Every mock is listed here with what production would use.
 |---|---|
 | Users, projects and briefs are synthetic seed data | Real onboarding with consent and data-protection controls |
 | Escrow is a database row with a made-up reference (`SIM-ESC-...`, `SIM-PAY-...`); no money moves | A regulated payment or escrow provider, with payouts to verified bank accounts |
+| The login page lists the demo accounts, which all share one password | Real sign-up with email verification; no shared or displayed credentials |
 | `verified`, `is_minor` and `guardian_consent` are plain flags set by the seed | KYC / institution verification and recorded guardian consent |
 | Seeded history is inserted directly with backdated ledger timestamps, and seeded agent runs never called an LLM | All history comes from real use; no path can set a ledger timestamp |
 | Artefact fingerprints in the seed are hashes of a file name, not of a file | SHA-256 of the uploaded file in private storage |

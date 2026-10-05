@@ -1,4 +1,6 @@
-const flow = ["Contribution", "Verification", "Attribution", "Credit / Payment"];
+import Link from "next/link";
+
+const flow =["Contribution", "Verification", "Attribution", "Credit / Payment"];
 
 export default function Home() {
   return (
@@ -22,8 +24,16 @@ export default function Home() {
           </li>
         ))}
       </ol>
+      <div>
+        <Link
+          href="/login"
+          className="inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground"
+        >
+          Sign in
+        </Link>
+      </div>
       <p className="text-xs text-muted-foreground">
-        Scaffold only. Prototype for Gardenia 2K26: all users, projects and payments are synthetic.
+        Prototype for Gardenia 2K26: all users, projects and payments are synthetic.
       </p>
     </main>
   );

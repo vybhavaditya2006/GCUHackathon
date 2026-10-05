@@ -9,8 +9,8 @@ const steps = [
   { label: "Discovery", segment: "", ready: true },
   { label: "Scoping & Matching", segment: "scope", ready: false },
   { label: "Workspace", segment: "workspace", ready: false },
-  { label: "Ledger", segment: "ledger", ready: false },
-  { label: "Credit & Payment", segment: "payouts", ready: false },
+  { label: "Ledger", segment: "ledger", ready: true },
+  { label: "Credit & Payment", segment: "payouts", ready: true },
   { label: "Final record", segment: "record", ready: false },
 ];
 

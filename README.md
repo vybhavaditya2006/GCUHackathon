@@ -15,7 +15,7 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, plus the Ledger page with Verify and the Credit & Payment page with receipts from Phase 6. Still to build: workspace (Phase 4), AI gateway and matching (Phase 5), final record, demo controls. Features are built phase by phase; see `docs/KICKOFF.md`.
 
 ## Tech stack
 
@@ -83,6 +83,9 @@ src/lib/auth.ts       current user + profile (server)
 src/lib/access.ts     pure "who can see what" rules that explain the brief lock
 src/lib/ledger.ts     append(), verify() over the SQL functions
 src/lib/charter.ts    accept (publish / new version come later)
+src/lib/split.ts      loads the engine's inputs for a milestone and runs computeSplit
+src/lib/escrow.ts     release: accept a milestone, store payouts + receipts (fund / freeze / refund come later)
+src/lib/ledgerView.ts pure: ledger rows -> timeline rows and reviewed weights
 src/lib/engine/       computeSplit + tests
 src/lib/agents/       LLM gateway, Groq client, prompts
 src/components/       shared UI

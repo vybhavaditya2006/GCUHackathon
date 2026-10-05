@@ -15,7 +15,7 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phase 0 (scaffold) is done. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phase 1 (database, RLS, ledger, seed) is done. Features are built phase by phase; see `docs/KICKOFF.md`.
 
 ## Tech stack
 
@@ -56,7 +56,21 @@ npm run lint       # ESLint
 npm run build      # production build
 ```
 
-Database setup (schema, RLS, ledger functions, seed) is added in Phase 1 under `supabase/`.
+### Database setup
+
+In the Supabase dashboard, open **SQL Editor**. For each file, paste the whole file and press Run:
+
+1. `supabase/migrations/001_schema.sql`: tables, RLS, ledger functions, state-changing functions.
+2. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
+
+Every seeded user signs in with the password `demo1234`, for example `anjali@charter.test` (sponsor),
+`kiran@charter.test` (expert), `priya@charter.test` (student) and `admin@charter.test` (admin).
+
+`supabase/tests/ledger_check.sql` has the verify and tamper-demo snippets. `supabase/seed.sql` can be
+re-run at any time to put the demo back to its starting state; `supabase/reset.sql` drops everything.
+
+`npm test` runs the schema, seed, RLS and ledger checks against an in-process Postgres (PGlite) with a
+small stand-in for Supabase's roles and auth schema. It does not touch the real project.
 
 ## Folder layout
 
@@ -68,6 +82,8 @@ src/lib/engine/       computeSplit + tests
 src/lib/agents/       LLM gateway, Groq client, prompts
 src/components/       shared UI
 supabase/migrations/  schema, RLS, ledger functions
+supabase/seed.sql     synthetic demo data
+supabase/tests/       SQL tests (PGlite) + manual verify / tamper snippets
 docs/                 design references, kickoff prompts, architecture doc
 ```
 
@@ -90,6 +106,13 @@ Every mock is listed here with what production would use.
 | In the prototype | In production |
 |---|---|
 | Users, projects and briefs are synthetic seed data | Real onboarding with consent and data-protection controls |
+| Escrow is a database row with a made-up reference (`SIM-ESC-...`, `SIM-PAY-...`); no money moves | A regulated payment or escrow provider, with payouts to verified bank accounts |
+| `verified`, `is_minor` and `guardian_consent` are plain flags set by the seed | KYC / institution verification and recorded guardian consent |
+| Seeded history is inserted directly with backdated ledger timestamps, and seeded agent runs never called an LLM | All history comes from real use; no path can set a ledger timestamp |
+| Artefact fingerprints in the seed are hashes of a file name, not of a file | SHA-256 of the uploaded file in private storage |
+| Track record (`proven_skills`, `completed_projects`) is stored on the profile | Derived from reviewed ledger entries |
+| Credentials are `CREDENTIAL_ISSUED` ledger entries only | Signed, independently verifiable credentials |
+| Tamper evidence relies on one hash chain held by the platform | Periodically anchor the latest hash somewhere public |
 
 <!-- Add a row whenever something is mocked (payments/escrow, KYC, similarity check, ...). -->
 

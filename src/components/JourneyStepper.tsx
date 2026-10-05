@@ -11,7 +11,7 @@ const steps = [
   { label: "Workspace", segment: "workspace", ready: true },
   { label: "Ledger", segment: "ledger", ready: true },
   { label: "Credit & Payment", segment: "payouts", ready: true },
-  { label: "Final record", segment: "record", ready: false },
+  { label: "Final record", segment: "record", ready: true },
 ];
 
 export function JourneyStepper({ projectId }: { projectId: string }) {

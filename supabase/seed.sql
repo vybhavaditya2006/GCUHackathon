@@ -13,8 +13,10 @@
 --   Project 2 (KNOWLEDGE-SHARING, Rs 0): work reviewed, milestone SUBMITTED;
 --     Ananya is INVITED but has not accepted, so her brief is still locked.
 --
--- Dates are relative to the day you run this (the story starts 22 days ago), so
--- ledger time always runs forwards when you add live entries during the demo.
+-- Dates are the literal story dates from the PoC sheets: posted 5 Oct 2026,
+-- Milestone 1 submitted 26 Oct 2026, project runs to 16 Nov 2026 (India time).
+-- Entries added live during the demo carry the real clock time, so they are
+-- dated EARLIER than the last seeded entries; the chain order (seq) is what counts.
 -- The seed is the one place that writes tables directly and backdates ledger
 -- entries; the app itself only ever uses the functions in 001_schema.sql.
 -- =============================================================================
@@ -34,10 +36,10 @@ alter sequence public.ledger_seq_seq restart with 1;
 delete from auth.users where email like '%@charter.test';
 
 -- ---- helpers (session-local) -----------------------------------------------
--- Story day p_day at p_time, India time. Day 0 = project posted, 22 days ago.
+-- Story day p_day at p_time, India time. Day 0 = project posted = 5 Oct 2026.
 create or replace function pg_temp.at(p_day int, p_time time) returns timestamptz
-language sql stable as $$
-  select (((now() at time zone 'Asia/Kolkata')::date - 22 + p_day) + p_time) at time zone 'Asia/Kolkata';
+language sql immutable as $$
+  select ((date '2026-10-05' + p_day) + p_time) at time zone 'Asia/Kolkata';
 $$;
 
 -- Stand-in SHA-256 fingerprint for a seeded artefact (there is no real file).

@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Style tokens from CLAUDE.md. Light theme only: clean, no gradients. */
+:root {
+  --radius: 0.625rem;
+
+  --background: #fafaf7;
+  --foreground: #111418;
+  --card: #ffffff;
+  --card-foreground: #111418;
+  --popover: #ffffff;
+  --popover-foreground: #111418;
+  --primary: #111418;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f1ec;
+  --secondary-foreground: #111418;
+  --muted: #f1f1ec;
+  --muted-foreground: #5b616b;
+  --accent: #2f5bea;
+  --accent-foreground: #ffffff;
+  --destructive: #c62828;
+  --border: #e3e3dc;
+  --input: #e3e3dc;
+  --ring: #2f5bea;
+
+  /* Semantic colours used across the six sheets */
+  --ai: #2f5bea;
+  --ai-soft: #e8eefd;
+  --verified: #17803f;
+  --verified-soft: #e3f3e8;
+  --alert: #c62828;
+  --alert-soft: #fdecec;
+  --pending: #b7791f;
+  --pending-soft: #fbf1dc;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-code), ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-verified: var(--verified);
+  --color-verified-soft: var(--verified-soft);
+  --color-alert: var(--alert);
+  --color-alert-soft: var(--alert-soft);
+  --color-pending: var(--pending);
+  --color-pending-soft: var(--pending-soft);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}

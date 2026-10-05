@@ -33,3 +33,14 @@ npm-debug.log*
 
 # Misc
 .DS_Store
+
+# Cowork / Claude outputs
+Claude outputs/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+coverage/
+.vercel

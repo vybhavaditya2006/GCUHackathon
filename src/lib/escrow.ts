@@ -4,8 +4,8 @@ import { adminDb } from "@/lib/db";
 import { loadSplit } from "@/lib/split";
 
 // Escrow state machine: funded -> released | frozen | refunded. Escrow is
-// simulated (a database row, no money moves). fund / freeze / refund arrive
-// with the workspace and dispute flows.
+// simulated (a database row, no money moves). freeze / refund arrive with the
+// dispute flow.
 
 const releaseResult = z.object({
   seq: z.number().int(),
@@ -25,6 +25,17 @@ export interface EscrowRelease {
 
 /** A rule in the SQL function said no (wrong status, not the sponsor, ...). Safe to show the user. */
 export class EscrowError extends Error {}
+
+/** The sponsor funds a draft milestone into (simulated) escrow; fund_escrow writes ESCROW_FUNDED. */
+export async function fund(milestoneId: string, sponsorId: string): Promise<{ reference: string; seq: number }> {
+  const { data, error } = await adminDb().rpc("fund_escrow", {
+    p_milestone_id: milestoneId,
+    p_sponsor_id: sponsorId,
+  });
+  if (error) throw new EscrowError(error.message.replace(/^fund_escrow:\s*/, ""));
+  const result = z.object({ reference: z.string(), seq: z.number().int() }).parse(data);
+  return result;
+}
 
 /**
  * Accepts a submitted milestone and releases its escrow. The pure engine

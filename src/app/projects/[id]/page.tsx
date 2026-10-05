@@ -18,12 +18,15 @@ export default async function DiscoveryPage({ params }: PageProps<"/projects/[id
   const { project, charter, milestones, access } = view;
 
   const paid = charter ? isPaidModel(charter.model) : false;
-  const budget = milestones.reduce((sum, m) => sum + m.amount, 0);
+  const budget = milestones
+    .filter((m) => m.amount > 0)
+    .map((m) => `${formatRupees(m.amount)} (Milestone ${m.position})`)
+    .join(" + ");
   const summary = project.public_summary.split("\n").filter(Boolean);
 
   const facts: [string, string][] = [
     ["Sponsor", [project.sponsor?.full_name, project.sponsor?.organisation].filter(Boolean).join(", ")],
-    ["Budget", paid ? formatRupees(budget) : "No payment (credit and credentials)"],
+    ["Budget", paid && budget ? budget : "No payment (credit and credentials)"],
     ["Timeline", `${formatDate(project.start_date)} to ${formatDate(project.end_date)}`],
     ["Commitment", `${project.hours_per_week} hours per week`],
   ];

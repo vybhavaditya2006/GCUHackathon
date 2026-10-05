@@ -1,4 +1,4 @@
-// Runs 001_schema.sql + seed.sql in an in-process Postgres (PGlite) with a small
+// Runs the migrations + seed.sql in an in-process Postgres (PGlite) with a small
 // stand-in for Supabase's roles and auth schema, then checks the ledger, RLS and
 // the state-changing functions. It does not talk to the real Supabase project.
 import { readFileSync } from "node:fs";
@@ -41,6 +41,7 @@ beforeAll(async () => {
   db = await PGlite.create({ extensions: { pgcrypto } });
   await db.exec(read("./supabase_stub.sql"));
   await db.exec(read("../migrations/001_schema.sql"));
+  await db.exec(read("../migrations/002_work_functions.sql"));
   await db.exec(read("../seed.sql"));
 }, 120_000);
 
@@ -191,6 +192,7 @@ describe("state-changing functions (each writes its ledger entry)", () => {
 
   it("fund_escrow: sponsor only, draft milestones with an amount only", async () => {
     await expect(db.query("select fund_escrow($1, $2)", [M1, ANJALI])).rejects.toThrow(/expected draft/);
+    await db.query("update milestones set amount = 0 where id = $1", [M2]);
     await expect(db.query("select fund_escrow($1, $2)", [M2, ANJALI])).rejects.toThrow(/no amount/);
     await db.query("update milestones set amount = 40000 where id = $1", [M2]);
     await expect(db.query("select fund_escrow($1, $2)", [M2, PRIYA])).rejects.toThrow(/only the project sponsor/);
@@ -222,6 +224,37 @@ describe("state-changing functions (each writes its ledger entry)", () => {
     const flag = await one<{ event: string; actor: string; on_behalf_of: string }>(
       "select event, actor, on_behalf_of from ledger where seq = $1", [copied.r.flag_seq]);
     expect(flag).toEqual({ event: "SIMILARITY_FLAGGED", actor: "agent:integrity", on_behalf_of: MEERA });
+  });
+
+  it("add_review and submit_milestone: expert reviews, the lead submits, reviews then close", async () => {
+    const clean = await one<{ id: string }>(
+      "select id from contributions where milestone_id = $1 and not flagged order by created_at limit 1", [M2]);
+    const review = (reviewer: string, verdict = "approved", impact = 7) =>
+      one<{ r: { seq: number; impact: number } }>(
+        "select add_review($1, $2, $3::review_verdict, $4, 'Solid work.') as r", [clean.id, reviewer, verdict, impact]);
+
+    await expect(db.query("select submit_milestone($1, $2)", [M2, PRIYA])).rejects.toThrow(/nothing to submit/);
+    await expect(review(PRIYA)).rejects.toThrow(/only an active expert/);
+    await expect(review(KIRAN, "approved", 11)).rejects.toThrow(/between 0 and 10/);
+
+    const done = await review(KIRAN);
+    expect(done.r.impact).toBe(7);
+    const entry = await one<{ event: string; actor: string; author: string }>(
+      "select event, actor, payload ->> 'author_id' as author from ledger where seq = $1", [done.r.seq]);
+    expect(entry).toEqual({ event: "REVIEW_DONE", actor: KIRAN, author: MEERA });
+    await expect(review(KIRAN)).rejects.toThrow(/already been reviewed/);
+
+    await expect(db.query("select submit_milestone($1, $2)", [M2, ARJUN])).rejects.toThrow(/team lead or the expert/);
+    const sub = await one<{ r: { seq: number } }>("select submit_milestone($1, $2) as r", [M2, PRIYA]);
+    const state = await one<{ status: string; event: string }>(
+      "select (select status from milestones where id = $1) as status, (select event from ledger where seq = $2) as event",
+      [M2, sub.r.seq]);
+    expect(state).toEqual({ status: "submitted", event: "MILESTONE_SUBMITTED" });
+
+    const flaggedOne = await one<{ id: string }>("select id from contributions where milestone_id = $1 and flagged", [M2]);
+    await expect(
+      db.query("select add_review($1, $2, 'rejected', 0, '')", [flaggedOne.id, KIRAN]),
+    ).rejects.toThrow(/reviews are closed/);
   });
 
   it("accept_milestone: releases escrow, stores payouts with receipts, and RLS scopes them", async () => {
@@ -283,6 +316,7 @@ describe("reset.sql", () => {
   it("drops everything so the schema and seed can be run again", async () => {
     await db.exec(read("../reset.sql"));
     await db.exec(read("../migrations/001_schema.sql"));
+    await db.exec(read("../migrations/002_work_functions.sql"));
     await db.exec(read("../seed.sql"));
     expect(await verify()).toMatchObject({ ok: true, checked: 46 });
   });

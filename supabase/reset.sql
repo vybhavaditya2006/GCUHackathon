@@ -1,4 +1,4 @@
--- reset.sql : drop everything 001_schema.sql creates, so it can be run again.
+-- reset.sql : drop everything 001_schema.sql and 002_work_functions.sql create, so they can be run again.
 -- DESTROYS all app data and the ledger. Seeded auth users are removed too.
 
 drop table if exists
@@ -23,7 +23,9 @@ drop function if exists
   public.accept_charter(uuid, uuid, boolean),
   public.fund_escrow(uuid, uuid),
   public.add_contribution(uuid, uuid, text, text, text, text, text, numeric, numeric),
-  public.accept_milestone(uuid, uuid, int, jsonb, jsonb, jsonb)
+  public.accept_milestone(uuid, uuid, int, jsonb, jsonb, jsonb),
+  public.add_review(uuid, uuid, public.review_verdict, int, text),
+  public.submit_milestone(uuid, uuid)
   cascade;
 
 drop type if exists

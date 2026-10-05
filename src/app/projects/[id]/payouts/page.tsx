@@ -22,7 +22,10 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
   const { user, charter, membership, isSponsor } = view;
 
   const milestone = view.milestones.find((m) => m.status !== "draft") ?? view.milestones[0];
-  const seesAll = isSponsor || user.role === "admin";
+  // Team transparency: the sponsor, admins and ACTIVE members see the whole split, so anyone on the
+  // team can check it. Someone who has left sees only their own share; outsiders see nothing.
+  const seesAll = isSponsor || user.role === "admin" || membership?.status === "active";
+  const canAccept = isSponsor || user.role === "admin";
   const onTeam = seesAll || (membership !== null && membership.status !== "invited");
   const monetary = charter ? isPaidModel(charter.model) : false;
   const accepted = milestone?.status === "accepted";
@@ -42,7 +45,7 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
         {heading}
         <p className="rounded-lg border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
           {!onTeam
-            ? "Payouts and receipts are visible to the sponsor and to each team member for their own share. You are not on this project's team."
+            ? "Payouts and receipts are visible to the project team. You are not on this project's team."
             : "This project has no milestone or charter to pay against yet."}
         </p>
       </>
@@ -60,13 +63,17 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
         .from("ledger")
         .select("event, payload")
         .eq("project_id", id)
-        .in("event", ["MILESTONE_ACCEPTED", "CREDENTIAL_ISSUED"])
+        .in("event", ["MILESTONE_ACCEPTED", "PAYOUT_ISSUED", "CREDENTIAL_ISSUED"])
         .eq("payload->>milestone_id", milestone.id)
         .order("seq"),
     ]);
-    shown.payouts = (payoutsRes.data ?? []).map((p) => ({ payout: p.receipt as Payout, paymentRef: p.payment_ref }));
-
     const entries = (ledgerRes.data ?? []) as { event: string; payload: Record<string, unknown> }[];
+    // Active members read the team's payouts from the ledger, where every PAYOUT_ISSUED entry carries
+    // its receipt. The payouts table stays own-row-only, which is what a former member falls back to.
+    const issuedPayouts = entries.filter((e) => e.event === "PAYOUT_ISSUED");
+    shown.payouts = issuedPayouts.length
+      ? issuedPayouts.map((e) => ({ payout: e.payload.receipt as Payout, paymentRef: String(e.payload.payment_ref) }))
+      : (payoutsRes.data ?? []).map((p) => ({ payout: p.receipt as Payout, paymentRef: p.payment_ref }));
     const acceptedEntry = entries.find((e) => e.event === "MILESTONE_ACCEPTED");
     shown.summary = (acceptedEntry?.payload.summary as SplitSummary | undefined) ?? null;
 
@@ -112,7 +119,7 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
     <>
       <div className="flex flex-wrap items-start justify-between gap-4">
         {heading}
-        {milestone.status === "submitted" && seesAll && (
+        {milestone.status === "submitted" && canAccept && (
           <AcceptMilestoneButton
             milestoneId={milestone.id}
             label={monetary ? "Accept milestone and release escrow" : "Accept milestone and issue credentials"}
@@ -190,7 +197,7 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
         )}
         {!seesAll && (
           <p className="text-xs text-muted-foreground">
-            You see your own share. Other members&apos; payouts are visible only to them and the sponsor.
+            You have left this project, so you see only your own share.
           </p>
         )}
       </section>

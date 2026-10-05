@@ -4,6 +4,7 @@ import { BriefPanel } from "@/components/BriefPanel";
 import { CharterCard } from "@/components/CharterCard";
 import { JudgeNote } from "@/components/JudgeNote";
 import { Pill, type PillTone } from "@/components/Pill";
+import { PostButton } from "@/components/PostButton";
 import { isPaidModel, MODEL_LABELS } from "@/lib/access";
 import { formatRupees } from "@/lib/engine/computeSplit";
 import { formatDate } from "@/lib/format";
@@ -117,6 +118,15 @@ export default async function DiscoveryPage({ params }: PageProps<"/projects/[id
                     : `I have read Charter v${charter.version} and understand this is a ${MODEL_LABELS[charter.model].toLowerCase()} engagement: there is no payment, only credit and credentials.`
                 }
               />
+            )}
+            {access.canAccept && view.membership?.status === "active" && (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="mb-2 text-sm text-muted-foreground">
+                  Do not agree with the new terms? You can leave under the version you signed. Your reviewed credit is
+                  kept and your access ends.
+                </p>
+                <PostButton url={`/api/projects/${project.id}/leave`} label="Leave the project with my credit" busyLabel="Leaving..." />
+              </div>
             )}
           </BriefPanel>
         </div>

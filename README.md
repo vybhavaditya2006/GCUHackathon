@@ -15,7 +15,7 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Still to build: the review agent and the admin demo controls for corner cases. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Phase 7's admin console is built as well: ledger audit, dispute resolution and demo controls for the corner cases (student quits midway, sponsor silent, paid to unpaid, unfair rejection and dispute). Not built: the review agent. Features are built phase by phase; see `docs/KICKOFF.md`.
 
 ## Tech stack
 
@@ -63,7 +63,8 @@ In the Supabase dashboard, open **SQL Editor**. For each file, paste the whole f
 1. `supabase/migrations/001_schema.sql`: tables, RLS, ledger functions, state-changing functions.
 2. `supabase/migrations/002_work_functions.sql`: review and milestone-submission functions.
 3. `supabase/migrations/003_agent_functions.sql`: agent drafts, scoping approval and invitations.
-4. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
+4. `supabase/migrations/004_corner_cases.sql`: member exit, charter change, rejection, disputes.
+5. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
 
 Every seeded user signs in with the password `demo1234`, for example `anjali@charter.test` (sponsor),
 `kiran@charter.test` (expert), `priya@charter.test` (student) and `admin@charter.test` (admin).
@@ -93,6 +94,7 @@ src/lib/work.ts       contributions, reviews, milestone submission
 src/lib/matchingScore.ts pure: hard filters + score out of 100
 src/lib/matching.ts   filters -> score -> LLM explanation, and invitations
 src/lib/drafts.ts     what each agent is asked, and draft approval
+src/lib/corner.ts     corner cases: exit, charter change, rejection, disputes, demo controls
 src/lib/engine/       computeSplit + tests
 src/lib/agents/       LLM gateway, Groq client, prompts
 src/components/       shared UI
@@ -126,6 +128,8 @@ Every mock is listed here with what production would use.
 | `verified`, `is_minor` and `guardian_consent` are plain flags set by the seed | KYC / institution verification and recorded guardian consent |
 | Seeded history is inserted directly with backdated ledger timestamps, and seeded agent runs never called an LLM | All history comes from real use; no path can set a ledger timestamp |
 | The similarity check compares an upload with one built-in text (`src/lib/integrity.ts`); `docs/demo/copied_cnn_notes.md` trips it | A real plagiarism and AI-content detection service |
+| Demo controls let an admin trigger a corner case; it is recorded under the person who would really act (student, sponsor, team lead) with `demo_control_by` in the ledger payload | Each person takes the action themselves; inactivity and the sponsor's review window are detected by scheduled jobs |
+| "Sponsor silent" auto-accepts on demand, without waiting for the charter's review window | A scheduled job that auto-accepts only once the window has really passed |
 | Agent cost is tokens x a made-up rupee price list (`src/lib/agents/prompt.ts`) | The provider's real billing, debited from the AI reserve |
 | The research / coding agent reads the project summary, the brief and notes the member pastes in | Retrieval over this project's stored files only |
 | Matching falls back to a fixed-wording reason when the LLM is unavailable (labelled on the page) | Same fallback, plus retries and monitoring |

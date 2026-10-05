@@ -43,7 +43,12 @@ export async function fund(milestoneId: string, sponsorId: string): Promise<{ re
  * the payouts with their receipts and writes MILESTONE_ACCEPTED, PAYOUT_ISSUED
  * and CREDENTIAL_ISSUED to the ledger, all in one transaction.
  */
-export async function release(milestoneId: string, actorId: string): Promise<EscrowRelease> {
+export async function release(
+  milestoneId: string,
+  actorId: string,
+  /** Extra facts for the ledger entry, e.g. that this was an auto-accept after the sponsor's window. */
+  note: Record<string, unknown> = {},
+): Promise<EscrowRelease> {
   const loaded = await loadSplit(milestoneId);
   if (!loaded) throw new EscrowError("milestone not found, or its project has no charter");
 
@@ -55,7 +60,7 @@ export async function release(milestoneId: string, actorId: string): Promise<Esc
     // The whole engine payout is stored as the receipt: lines, ledger refs and the breakdown.
     p_payouts: payouts.map((p) => ({ user_id: p.userId, amount: p.amount, receipt: p })),
     p_credentials: loaded.credentials.map((c) => ({ user_id: c.userId, title: c.title })),
-    p_summary: summary,
+    p_summary: { ...summary, ...note },
   });
   if (error) throw new EscrowError(error.message.replace(/^accept_milestone:\s*/, ""));
 

@@ -43,6 +43,7 @@ beforeAll(async () => {
   await db.exec(read("../migrations/001_schema.sql"));
   await db.exec(read("../migrations/002_work_functions.sql"));
   await db.exec(read("../migrations/003_agent_functions.sql"));
+  await db.exec(read("../migrations/004_corner_cases.sql"));
   await db.exec(read("../seed.sql"));
 }, 120_000);
 
@@ -370,12 +371,85 @@ describe("state-changing functions (each writes its ledger entry)", () => {
   });
 });
 
+describe("corner cases (004)", () => {
+  const status = (table: string, where: string, params: unknown[]) =>
+    one<{ status: string }>(`select status from ${table} where ${where}`, params).then((r) => r.status);
+
+  it("unfair rejection: must cite a criterion, can be disputed, and the dispute freezes escrow", async () => {
+    const reject = (actor: string, criterion: string) =>
+      db.query("select reject_milestone($1, $2, $3, 'Not convinced.')", [M2, actor, criterion]);
+    await expect(reject(PRIYA, "Model < 10 MB")).rejects.toThrow(/only the project sponsor/);
+    await expect(reject(ANJALI, "  ")).rejects.toThrow(/must cite the acceptance criterion/);
+    await reject(ANJALI, "Model < 10 MB");
+    expect(await status("milestones", "id = $1", [M2])).toBe("rejected");
+
+    await expect(db.query("select raise_dispute($1, $2, 'Unfair')", [M2, ROHAN])).rejects.toThrow(/active team member/);
+    const raised = await one<{ r: { dispute_id: string; escrow_frozen: number } }>(
+      "select raise_dispute($1, $2, 'The model is 6.8 MB; the criterion was met.') as r", [M2, PRIYA]);
+    expect(raised.r.escrow_frozen).toBe(40000);
+    expect(await status("milestones", "id = $1", [M2])).toBe("disputed");
+    expect(await status("escrows", "milestone_id = $1", [M2])).toBe("frozen");
+
+    const resolve = (actor: string) =>
+      db.query("select resolve_dispute($1, $2, 'team', 'Evidence shows the criterion was met.')", [raised.r.dispute_id, actor]);
+    await expect(resolve(ANJALI)).rejects.toThrow(/only a platform admin/);
+    await resolve(ADMIN);
+    expect(await status("milestones", "id = $1", [M2])).toBe("submitted");
+    expect(await status("escrows", "milestone_id = $1", [M2])).toBe("funded");
+    await expect(resolve(ADMIN)).rejects.toThrow(/already resolved/);
+  });
+
+  it("a student quits midway: pro-rata fraction recorded and access ends at once", async () => {
+    expect(await asUser(MEERA, "select 1 from project_briefs where project_id = $1", [P1])).toHaveLength(1);
+    const left = await one<{ r: { seq: number; active_fraction: number } }>(
+      "select exit_member($1, $2, 0.6, $3) as r", [P1, MEERA, ADMIN]);
+    expect(left.r.active_fraction).toBe(0.6);
+    const entry = await one<{ event: string; actor: string; demo: string }>(
+      "select event, actor, payload ->> 'demo_control_by' as demo from ledger where seq = $1", [left.r.seq]);
+    expect(entry).toEqual({ event: "MEMBER_EXITED", actor: MEERA, demo: ADMIN });
+
+    expect(await asUser(MEERA, "select 1 from project_briefs where project_id = $1", [P1])).toHaveLength(0);
+    expect(await asUser(MEERA, "select 1 from ledger where project_id = $1 limit 1", [P1])).toHaveLength(0);
+    await expect(db.query("select exit_member($1, $2)", [P1, MEERA])).rejects.toThrow(/nothing to exit/);
+  });
+
+  it("paid to unpaid: new charter version re-locks the brief and refunds unreleased escrow", async () => {
+    const publish = (actor: string) =>
+      one<{ r: { charter_version: number; escrow_refunded: number } }>(
+        `select publish_charter_version($1, $2, 'knowledge_sharing', '{"feePct":0,"aiReservePct":0,"expertPct":0,"equalPct":40,"weightedPct":60}'::jsonb) as r`,
+        [P1, actor]);
+    await expect(publish(PRIYA)).rejects.toThrow(/only the project sponsor/);
+    const v2 = await publish(ANJALI);
+    expect(v2.r).toMatchObject({ charter_version: 2, escrow_refunded: 40000 });
+    expect(await status("escrows", "milestone_id = $1", [M2])).toBe("refunded");
+
+    const brief = (uid: string) => asUser(uid, "select 1 from project_briefs where project_id = $1", [P1]);
+    expect(await brief(ANJALI)).toHaveLength(1); // the sponsor keeps access
+    expect(await brief(PRIYA)).toHaveLength(0); // re-locked until she re-accepts
+    await db.query("select accept_charter($1, $2, true)", [P1, PRIYA]);
+    expect(await brief(PRIYA)).toHaveLength(1);
+
+    const accept = (payouts: unknown) =>
+      db.query("select accept_milestone($1, $2, 2, $3::jsonb, $4::jsonb, '{}'::jsonb)", [
+        M2, ANJALI, JSON.stringify(payouts), JSON.stringify([{ user_id: PRIYA, title: "Contributor credential" }]),
+      ]);
+    await expect(accept([{ user_id: PRIYA, amount: 100 }])).rejects.toThrow(/escrow was refunded/);
+    await accept([{ user_id: PRIYA, amount: 0, receipt: { lines: ["No payment: the charter is now unpaid"] } }]);
+    const after = await one<{ ms: string; payouts: number }>(
+      "select (select status from milestones where id = $1) as ms, (select count(*)::int from payouts where milestone_id = $1) as payouts",
+      [M2]);
+    expect(after).toEqual({ ms: "accepted", payouts: 0 });
+    expect(await verify()).toMatchObject({ ok: true, broken_at: null });
+  });
+});
+
 describe("reset.sql", () => {
   it("drops everything so the schema and seed can be run again", async () => {
     await db.exec(read("../reset.sql"));
     await db.exec(read("../migrations/001_schema.sql"));
     await db.exec(read("../migrations/002_work_functions.sql"));
-  await db.exec(read("../migrations/003_agent_functions.sql"));
+    await db.exec(read("../migrations/003_agent_functions.sql"));
+    await db.exec(read("../migrations/004_corner_cases.sql"));
     await db.exec(read("../seed.sql"));
     expect(await verify()).toMatchObject({ ok: true, checked: 46 });
   });

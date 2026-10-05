@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import type { CharterModel } from "@/lib/access";
+import { isPaidModel, type CharterModel } from "@/lib/access";
 import { adminDb } from "@/lib/db";
 import {
   computeSplit,
@@ -111,8 +111,10 @@ export async function loadSplit(milestoneId: string): Promise<LoadedSplit | null
     ];
   });
 
+  // Under an unpaid charter nothing is distributed, whatever the milestone was once worth.
+  const budget = isPaidModel(charterRes.data.model) ? Math.round(Number(milestone.amount)) : 0;
   const split = computeSplit(
-    Math.round(Number(milestone.amount)),
+    budget,
     { ...terms, version: charterRes.data.version },
     members,
     reviewed,

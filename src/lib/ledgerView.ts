@@ -89,13 +89,19 @@ function describe(e: LedgerEntry, nameOf: (id: unknown) => string): string {
     case "MILESTONE_SUBMITTED":
       return `Submitted "${p.milestone}"`;
     case "MILESTONE_ACCEPTED":
-      return `Accepted "${p.milestone}" under Charter v${p.charter_version}; ${rupees(p.paid_total)} paid out`;
+      return `${(p.summary as { auto_accepted?: boolean } | undefined)?.auto_accepted ? "Auto-accepted (sponsor silent)" : "Accepted"} "${p.milestone}" under Charter v${p.charter_version}; ${rupees(p.paid_total)} paid out`;
     case "PAYOUT_ISSUED":
       return `Paid ${rupees(p.amount)} to ${nameOf(p.user_id)}`;
     case "CREDENTIAL_ISSUED":
       return `Issued "${p.title}" to ${nameOf(p.user_id)}`;
     case "MEMBER_EXITED":
-      return `${nameOf(p.user_id)} left the project`;
+      return `Left the project after ${Math.round(Number(p.active_fraction ?? 1) * 100)}% of the milestone; credit kept, access revoked`;
+    case "MILESTONE_REJECTED":
+      return `Rejected "${p.milestone}", citing: ${p.criterion_cited}`;
+    case "DISPUTE_RAISED":
+      return `Disputed the rejection of "${p.milestone}"; ${rupees(p.escrow_frozen)} of escrow frozen`;
+    case "DISPUTE_RESOLVED":
+      return `Resolved the dispute in favour of the ${p.in_favour_of}; escrow unfrozen`;
     case "BRIEF_VIEWED":
       return "Viewed the confidential brief";
     default:

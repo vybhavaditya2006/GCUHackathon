@@ -100,6 +100,14 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Welcome, {user.fullName}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{intro[user.role]}</p>
+          {user.role === "admin" && (
+            <Link
+              href="/admin"
+              className="mt-3 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            >
+              Open the admin console (audit, disputes, demo controls)
+            </Link>
+          )}
         </div>
 
         {user.role !== "admin" && (

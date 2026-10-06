@@ -192,10 +192,44 @@ begin
 end;
 $$;
 
+-- The expert confirms the review agent's criteria check. The check itself decides
+-- nothing: the expert's own reviews (add_review) are what the engine weights by.
+create or replace function public.confirm_review_draft(
+  p_draft_id uuid, p_owner_id uuid, p_note text default ''
+) returns jsonb
+language plpgsql security definer
+set search_path = public, extensions
+as $$
+declare
+  v_draft public.agent_drafts;
+  v_entry public.ledger;
+begin
+  select * into v_draft from public.agent_drafts where id = p_draft_id for update;
+  if not found or v_draft.agent <> 'review' then
+    raise exception 'confirm_review_draft: review draft not found';
+  end if;
+  if v_draft.owner_id <> p_owner_id then
+    raise exception 'confirm_review_draft: only the expert who owns this draft can confirm it';
+  end if;
+  if v_draft.status <> 'pending' then
+    raise exception 'confirm_review_draft: draft is already %', v_draft.status;
+  end if;
+
+  update public.agent_drafts set status = 'approved', decided_at = clock_timestamp() where id = v_draft.id;
+
+  v_entry := public.ledger_append_entry(v_draft.project_id, p_owner_id::text, null, 'AGENT_DRAFT_APPROVED',
+    jsonb_build_object('agent', 'review', 'draft_id', v_draft.id, 'edited', false,
+                       'confirmed', coalesce(p_note, '')));
+
+  return jsonb_build_object('seq', v_entry.seq, 'hash', v_entry.hash);
+end;
+$$;
+
 revoke all on function
   public.record_agent_draft(uuid, uuid, text, uuid, text, jsonb, text, int, int, numeric, text),
   public.approve_agent_draft(uuid, uuid, text, text, text, numeric, text, boolean),
   public.approve_scoping_draft(uuid, uuid, jsonb),
+  public.confirm_review_draft(uuid, uuid, text),
   public.invite_member(uuid, uuid, uuid, public.member_role)
 from public, anon, authenticated;
 
@@ -203,5 +237,6 @@ grant execute on function
   public.record_agent_draft(uuid, uuid, text, uuid, text, jsonb, text, int, int, numeric, text),
   public.approve_agent_draft(uuid, uuid, text, text, text, numeric, text, boolean),
   public.approve_scoping_draft(uuid, uuid, jsonb),
+  public.confirm_review_draft(uuid, uuid, text),
   public.invite_member(uuid, uuid, uuid, public.member_role)
 to service_role;

@@ -15,7 +15,7 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Phase 7's admin console is built as well: ledger audit, dispute resolution and demo controls for the corner cases (student quits midway, sponsor silent, paid to unpaid, unfair rejection and dispute). Not built: the review agent. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Phase 7's admin console is built as well: ledger audit, dispute resolution and demo controls for the corner cases (student quits midway, sponsor silent, paid to unpaid, unfair rejection and dispute). All four agents in the table (scoping, matching explainer, research / coding, review) are built. Features are built phase by phase; see `docs/KICKOFF.md`.
 
 ## Tech stack
 
@@ -65,6 +65,8 @@ In the Supabase dashboard, open **SQL Editor**. For each file, paste the whole f
 3. `supabase/migrations/003_agent_functions.sql`: agent drafts, scoping approval and invitations.
 4. `supabase/migrations/004_corner_cases.sql`: member exit, charter change, rejection, disputes.
 5. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
+
+Shortcut once `001_schema.sql` is in place: `npm run db:bundle` writes `supabase/paste_me.sql` (migrations 002 to 004 plus the seed) so an update is one paste.
 
 Every seeded user signs in with the password `demo1234`, for example `anjali@charter.test` (sponsor),
 `kiran@charter.test` (expert), `priya@charter.test` (student) and `admin@charter.test` (admin).

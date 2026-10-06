@@ -29,6 +29,7 @@ drop function if exists
   public.record_agent_draft(uuid, uuid, text, uuid, text, jsonb, text, int, int, numeric, text),
   public.approve_agent_draft(uuid, uuid, text, text, text, numeric, text, boolean),
   public.approve_scoping_draft(uuid, uuid, jsonb),
+  public.confirm_review_draft(uuid, uuid, text),
   public.invite_member(uuid, uuid, uuid, public.member_role),
   public.exit_member(uuid, uuid, numeric, uuid),
   public.publish_charter_version(uuid, uuid, public.charter_model, jsonb, uuid),

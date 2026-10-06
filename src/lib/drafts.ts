@@ -1,5 +1,6 @@
 import "server-only";
 import { AgentError, runAgent } from "@/lib/agents/gateway";
+import { reviewInstructions, reviewSchema, reviewTask } from "@/lib/agents/prompts/review";
 import { scopingInstructions, scopingSchema, scopingTask } from "@/lib/agents/prompts/scoping";
 import { workspaceInstructions, workspaceSchema, workspaceTask } from "@/lib/agents/prompts/workspace";
 import { adminDb } from "@/lib/db";
@@ -123,4 +124,53 @@ export async function approveDraft(input: DraftApproval) {
   });
   if (error) throw new AgentError(error.message.replace(/^(approve_agent_draft|add_contribution):\s*/, ""));
   return data as { contribution_id: string; seq: number };
+}
+
+/** Review agent: owned by the expert, reads the milestone's acceptance criteria and submission record. */
+export async function runReview(milestoneId: string, userId: string) {
+  const db = adminDb();
+  const { data: milestone } = await db
+    .from("milestones")
+    .select("project_id, title, acceptance_criteria, status")
+    .eq("id", milestoneId)
+    .maybeSingle();
+  if (!milestone) throw new AgentError("Milestone not found.");
+
+  const [membership, contributions] = await Promise.all([
+    db.from("memberships").select("role").eq("project_id", milestone.project_id).eq("user_id", userId).maybeSingle(),
+    db
+      .from("contributions")
+      .select("title, artefact_name, ai_share, similarity, flagged, ai_declaration, reviews(verdict, impact, notes)")
+      .eq("milestone_id", milestoneId)
+      .order("created_at"),
+  ]);
+  if (membership.data?.role !== "expert") throw new AgentError("Only the project's expert can run the review agent.");
+  if (!contributions.data?.length) throw new AgentError("There is nothing to check yet: this milestone has no contributions.");
+
+  return runAgent({
+    agent: "review",
+    projectId: milestone.project_id,
+    milestoneId,
+    ownerId: userId,
+    instructions: reviewInstructions,
+    task: reviewTask,
+    documents: [
+      { name: "acceptance_criteria", text: `Milestone: ${milestone.title}\nAccepted when: ${milestone.acceptance_criteria}` },
+      { name: "submission_record", text: JSON.stringify(contributions.data) },
+    ],
+    schema: reviewSchema,
+    inputSummary: "Acceptance criteria + submission record",
+    summarise: (out) => `Criteria check: ${out.criteria.filter((c) => c.met === "yes").length} of ${out.criteria.length} met`,
+  });
+}
+
+/** The expert confirms the criteria check; confirm_review_draft writes AGENT_DRAFT_APPROVED. */
+export async function confirmReview(draftId: string, userId: string, note: string) {
+  const { data, error } = await adminDb().rpc("confirm_review_draft", {
+    p_draft_id: draftId,
+    p_owner_id: userId,
+    p_note: note,
+  });
+  if (error) throw new AgentError(error.message.replace(/^confirm_review_draft:\s*/, ""));
+  return data as { seq: number };
 }

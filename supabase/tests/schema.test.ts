@@ -285,6 +285,19 @@ describe("state-changing functions (each writes its ledger entry)", () => {
     expect(invited.status).toBe("invited");
   });
 
+  it("review agent draft: only the expert who owns it can confirm it", async () => {
+    const draft = await one<{ r: { draft_id: string } }>(
+      `select record_agent_draft($1, $2, 'review', $3, 'criteria + submission', '{"criteria":[]}'::jsonb, 'test-model', 10, 10, 0, 'Criteria check') as r`,
+      [P1, M2, KIRAN],
+    );
+    await expect(db.query("select confirm_review_draft($1, $2)", [draft.r.draft_id, PRIYA])).rejects.toThrow(/only the expert who owns/);
+    const ok = await one<{ r: { seq: number } }>("select confirm_review_draft($1, $2, 'Checked.') as r", [draft.r.draft_id, KIRAN]);
+    const entry = await one<{ event: string; agent: string }>(
+      "select event, payload ->> 'agent' as agent from ledger where seq = $1", [ok.r.seq]);
+    expect(entry).toEqual({ event: "AGENT_DRAFT_APPROVED", agent: "review" });
+    await expect(db.query("select confirm_review_draft($1, $2)", [draft.r.draft_id, KIRAN])).rejects.toThrow(/already approved/);
+  });
+
   it("add_review and submit_milestone: expert reviews, the lead submits, reviews then close", async () => {
     const clean = await one<{ id: string }>(
       "select id from contributions where milestone_id = $1 and not flagged order by created_at limit 1", [M2]);

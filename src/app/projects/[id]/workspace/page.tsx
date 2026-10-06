@@ -146,6 +146,36 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
     };
   });
 
+  // The expert's own review-agent drafts (RLS: an agent draft is visible to its owner).
+  const { data: reviewRows } = canReview
+    ? await db
+        .from("agent_drafts")
+        .select("id, milestone_id, output, status")
+        .eq("project_id", id)
+        .eq("owner_id", user.id)
+        .eq("agent", "review")
+        .order("created_at", { ascending: false })
+        .limit(3)
+    : { data: [] };
+  const reviewDrafts = (reviewRows ?? []).map((d) => {
+    const out = (d.output ?? {}) as {
+      criteria?: { criterion: string; met: string | boolean; evidence: string }[];
+      summary?: string;
+    };
+    const m = milestones.find((x) => x.id === d.milestone_id);
+    return {
+      id: d.id as string,
+      status: d.status as string,
+      summary: out.summary ?? "",
+      milestoneLabel: m ? `Milestone ${m.position}` : "Milestone",
+      // The seeded draft stores met as true / false.
+      criteria: (out.criteria ?? []).map((c) => ({
+        ...c,
+        met: c.met === true ? "yes" : c.met === false ? "no" : c.met,
+      })),
+    };
+  });
+
   const held = escrows.filter((e) => e.status === "funded").reduce((sum, e) => sum + Number(e.amount), 0);
   const released = escrows.filter((e) => e.status === "released").reduce((sum, e) => sum + Number(e.amount), 0);
 
@@ -346,6 +376,65 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
               drafts={drafts}
             />
           </div>
+        </section>
+      )}
+
+      {canReview && (
+        <section className="rounded-lg border border-border bg-card p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold">Review agent</h2>
+            <Pill tone="ai">Review agent · owned by you</Pill>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Drafts a check of a milestone&apos;s submission record against its acceptance criteria. It decides nothing:
+            your own reviews and impact scores are what the charter weights by.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {milestones
+              .filter((m) => contributions.some((c) => c.milestone_id === m.id))
+              .map((m) => (
+                <PostButton
+                  key={m.id}
+                  url={`/api/milestones/${m.id}/review-agent`}
+                  label={`Check Milestone ${m.position} against its criteria`}
+                  busyLabel="Checking..."
+                />
+              ))}
+          </div>
+          <ul className="mt-4 flex flex-col gap-3">
+            {reviewDrafts.map((d) => (
+              <li key={d.id} className="rounded-md border border-border bg-background p-4 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{d.milestoneLabel} criteria check</span>
+                  <Pill tone={d.status === "approved" ? "verified" : "pending"}>
+                    {d.status === "approved" ? "Confirmed by you" : "Draft, not confirmed"}
+                  </Pill>
+                </div>
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {d.criteria.map((c) => (
+                    <li key={c.criterion} className="flex flex-wrap items-baseline gap-2">
+                      <Pill tone={c.met === "yes" ? "verified" : c.met === "no" ? "alert" : "pending"}>
+                        {c.met === "yes" ? "Met" : c.met === "no" ? "Not met" : "Unclear"}
+                      </Pill>
+                      <span>{c.criterion}</span>
+                      <span className="basis-full text-xs text-muted-foreground">{c.evidence}</span>
+                    </li>
+                  ))}
+                </ul>
+                {d.summary && <p className="mt-2 text-xs text-muted-foreground">{d.summary}</p>}
+                {d.status === "pending" && (
+                  <div className="mt-3">
+                    <PostButton
+                      url={`/api/agent-drafts/${d.id}/confirm`}
+                      body={{ note: "Checked against the submission." }}
+                      label="Confirm this check"
+                      busyLabel="Confirming..."
+                    />
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

@@ -13,9 +13,20 @@ Core flow: **Contribution → Verification → Attribution → Credit / Payment*
 This is a hackathon prototype. **No real money and no real personal data**: all users, projects,
 payments, KYC and agreements are synthetic or simulated.
 
+## Submission
+
+- **Demo video:** <VIDEO_LINK_PLACEHOLDER>
+- **Architecture document:** [docs/architecture.pdf](docs/architecture.pdf) (source: [docs/architecture.md](docs/architecture.md))
+- **Seeded logins** (all synthetic, password `demo1234`): `anjali@charter.test` (sponsor), `kiran@charter.test` (expert),
+  `priya@charter.test` (student lead), `arjun@charter.test` and `meera@charter.test` (students), `rohan@charter.test`
+  (student filtered out by the conflict-of-interest rule), `admin@charter.test` (platform admin).
+- **Projects** (after signing in):
+  - Funded: `/projects/b0000000-0000-4000-8000-000000000001`
+  - Knowledge-sharing (no money, credentials only): `/projects/b0000000-0000-4000-8000-000000000002`
+
 ## Status
 
-Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Phase 7's admin console is built as well: ledger audit, dispute resolution and demo controls for the corner cases (student quits midway, sponsor silent, paid to unpaid, unfair rejection and dispute). All four agents in the table (scoping, matching explainer, research / coding, review) are built.
+Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Phase 7's admin console is built as well: ledger audit, dispute resolution and demo controls for the corner cases (student quits midway, sponsor silent, paid to unpaid, unfair rejection and dispute). All four agents in the table (scoping, matching explainer, research / coding, review) are built. Uploaded files are kept in a private Supabase Storage bucket keyed by their SHA-256: the sponsor, active team members and admins can open them from the Workspace, every download is re-checked against the fingerprint in the ledger, and the Final Record page lists the approved deliverables for the sponsor. Experts can upload work as well as students; expert work is credited and delivered but not impact-scored.
 
 ## Tech stack
 
@@ -109,7 +120,7 @@ src/components/       shared UI
 supabase/migrations/  schema, RLS, ledger functions
 supabase/seed.sql     synthetic demo data
 supabase/tests/       SQL tests (PGlite) + manual verify / tamper snippets
-docs/                 design references, kickoff prompts, architecture doc
+docs/                 design references, demo upload samples, architecture doc
 ```
 
 ## AI tools used
@@ -121,8 +132,9 @@ Declared as required by the hackathon rules.
 | Claude Code (Anthropic) | Scaffolding, writing and reviewing application code, SQL, tests and docs |
 | Claude (Anthropic, chat/Cowork) | Planning, the project spec, the paper PoC and the UI mock-ups in `docs/design/` |
 | Groq-hosted open-weight model (`openai/gpt-oss-120b`, set in `GROQ_MODEL`) | Runtime LLM inside the product (scoping, matching explanations, research/coding and review agents) |
+| Text-to-speech (Clipchamp / Immersive Reader) | Voiceover for the demo video |
 
-<!-- Add any other AI tool a team member uses, before the final submission. -->
+
 
 ## Simplifications
 

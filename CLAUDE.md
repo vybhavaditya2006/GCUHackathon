@@ -22,7 +22,7 @@ At every step the demo must answer: **who did what, who could see what, and why 
 ## Tech stack
 - **Next.js (App Router) + TypeScript**, Tailwind CSS, shadcn/ui
 - **Supabase**: Postgres, Auth (email + password), Storage (private buckets), row-level security (RLS)
-- **Groq** LLM API (Llama model; model id from the `GROQ_MODEL` env var; check console.groq.com/docs/models for a current id)
+- **Groq** LLM API (Llama model; model id from the `GROQ_MODEL` env var; check console.groq.com/docs/models for a current id). Note (6 Oct): our key is offered no Llama chat model, so `GROQ_MODEL` is `openai/gpt-oss-120b`.
 - **Zod** for validating every API body and every LLM JSON reply
 - **Vitest** for unit tests
 - Dev machine: **Windows / PowerShell**. Use cross-platform npm scripts (no bash-only syntax).
@@ -80,6 +80,7 @@ Tables: `profiles` (role: student|expert|sponsor|admin, verified, skills[], hour
 - `project_briefs` readable only by the sponsor OR active members whose `charter_version` = the latest version (so a new charter version re-locks the brief until re-accepted).
 - `ledger` readable by project members and admins; **no direct insert/update/delete** for anon/authenticated (writes only via `ledger_append`).
 - `payouts`: users see their own; the sponsor sees their project's.
+  Decision (6 Oct): payouts are **transparent inside the team**. Active members see the whole split on the Payouts page, read from the `PAYOUT_ISSUED` ledger entries they can already see; the `payouts` table policy stays as above, so a former member or outsider sees no one else's.
 - Enable RLS on every table; default deny.
 
 ## Charter engine: `computeSplit(budget, terms, members, reviewedContributions)`

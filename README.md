@@ -15,13 +15,13 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phases 1 (database, RLS, ledger, seed) and 2 (charter engine) are done. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Phase 7's admin console is built as well: ledger audit, dispute resolution and demo controls for the corner cases (student quits midway, sponsor silent, paid to unpaid, unfair rejection and dispute). All four agents in the table (scoping, matching explainer, research / coding, review) are built. Features are built phase by phase; see `docs/KICKOFF.md`.
 
 ## Tech stack
 
 - Next.js (App Router) + TypeScript, Tailwind CSS, shadcn/ui
 - Supabase: Postgres, Auth (email + password), Storage, row-level security
-- Groq LLM API (Llama model, id from `GROQ_MODEL`)
+- Groq LLM API (model id from `GROQ_MODEL`; currently `openai/gpt-oss-120b`, because no Llama chat model is offered to our Groq key)
 - Zod for validating API bodies and LLM JSON replies
 - Vitest for unit tests
 
@@ -61,7 +61,14 @@ npm run build      # production build
 In the Supabase dashboard, open **SQL Editor**. For each file, paste the whole file and press Run:
 
 1. `supabase/migrations/001_schema.sql`: tables, RLS, ledger functions, state-changing functions.
-2. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
+2. `supabase/migrations/002_work_functions.sql`: review and milestone-submission functions.
+3. `supabase/migrations/003_agent_functions.sql`: agent drafts, scoping approval and invitations.
+4. `supabase/migrations/004_corner_cases.sql`: member exit, charter change, rejection, disputes.
+5. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
+
+Shortcut once `001_schema.sql` is in place: `npm run db:bundle` writes `supabase/paste_me.sql` (migrations 002 to 004 plus the seed) so an update is one paste.
+
+`npm run demo:dryrun` rehearses the whole demo over HTTP against the running dev server and the real Supabase project (about 60 checks, four real LLM calls). It needs a freshly seeded database and changes demo state, so paste `supabase/paste_me.sql` again afterwards. The SQL editor may show `schema "seed_tmp" does not exist` after running the seed even though it succeeded; check the app or the ledger count (46) rather than that message.
 
 Every seeded user signs in with the password `demo1234`, for example `anjali@charter.test` (sponsor),
 `kiran@charter.test` (expert), `priya@charter.test` (student) and `admin@charter.test` (admin).
@@ -78,6 +85,20 @@ small stand-in for Supabase's roles and auth schema. It does not touch the real 
 src/app/              pages + /api route handlers
 src/lib/db.ts         Supabase server clients (service role, and per-user with RLS)
 src/lib/db.browser.ts Supabase browser client (publishable key)
+src/proxy.ts          refreshes the session cookie; sends signed-out visitors to /login
+src/lib/auth.ts       current user + profile (server)
+src/lib/access.ts     pure "who can see what" rules that explain the brief lock
+src/lib/ledger.ts     append(), verify() over the SQL functions
+src/lib/charter.ts    accept (publish / new version come later)
+src/lib/split.ts      loads the engine's inputs for a milestone and runs computeSplit
+src/lib/escrow.ts     fund, and release (accept a milestone, store payouts + receipts); freeze / refund come later
+src/lib/ledgerView.ts pure: ledger rows -> timeline rows and reviewed weights
+src/lib/integrity.ts  SHA-256 of artefacts + mocked similarity score
+src/lib/work.ts       contributions, reviews, milestone submission
+src/lib/matchingScore.ts pure: hard filters + score out of 100
+src/lib/matching.ts   filters -> score -> LLM explanation, and invitations
+src/lib/drafts.ts     what each agent is asked, and draft approval
+src/lib/corner.ts     corner cases: exit, charter change, rejection, disputes, demo controls
 src/lib/engine/       computeSplit + tests
 src/lib/agents/       LLM gateway, Groq client, prompts
 src/components/       shared UI
@@ -95,7 +116,7 @@ Declared as required by the hackathon rules.
 |---|---|
 | Claude Code (Anthropic) | Scaffolding, writing and reviewing application code, SQL, tests and docs |
 | Claude (Anthropic, chat/Cowork) | Planning, the project spec (`CLAUDE.md`), the paper PoC and the UI mock-ups in `docs/design/` |
-| Groq-hosted Llama model | Runtime LLM inside the product (scoping, matching explanations, research/coding and review agents) |
+| Groq-hosted open-weight model (`openai/gpt-oss-120b`, set in `GROQ_MODEL`) | Runtime LLM inside the product (scoping, matching explanations, research/coding and review agents) |
 
 <!-- Add any other AI tool a team member uses, before the final submission. -->
 
@@ -107,8 +128,16 @@ Every mock is listed here with what production would use.
 |---|---|
 | Users, projects and briefs are synthetic seed data | Real onboarding with consent and data-protection controls |
 | Escrow is a database row with a made-up reference (`SIM-ESC-...`, `SIM-PAY-...`); no money moves | A regulated payment or escrow provider, with payouts to verified bank accounts |
+| The login page lists the demo accounts, which all share one password | Real sign-up with email verification; no shared or displayed credentials |
 | `verified`, `is_minor` and `guardian_consent` are plain flags set by the seed | KYC / institution verification and recorded guardian consent |
 | Seeded history is inserted directly with backdated ledger timestamps, and seeded agent runs never called an LLM | All history comes from real use; no path can set a ledger timestamp |
+| The similarity check compares an upload with one built-in text (`src/lib/integrity.ts`); `docs/demo/copied_cnn_notes.md` trips it | A real plagiarism and AI-content detection service |
+| Demo controls let an admin trigger a corner case; it is recorded under the person who would really act (student, sponsor, team lead) with `demo_control_by` in the ledger payload | Each person takes the action themselves; inactivity and the sponsor's review window are detected by scheduled jobs |
+| "Sponsor silent" auto-accepts on demand, without waiting for the charter's review window | A scheduled job that auto-accepts only once the window has really passed |
+| Agent cost is tokens x a made-up rupee price list (`src/lib/agents/prompt.ts`) | The provider's real billing, debited from the AI reserve |
+| The research / coding agent reads the project summary, the brief and notes the member pastes in | Retrieval over this project's stored files only |
+| Matching falls back to a fixed-wording reason when the LLM is unavailable (labelled on the page) | Same fallback, plus retries and monitoring |
+| Uploaded files are fingerprinted (SHA-256) and then discarded; only the name and hash are kept | The file stored in a private Supabase Storage bucket with per-member access |
 | Artefact fingerprints in the seed are hashes of a file name, not of a file | SHA-256 of the uploaded file in private storage |
 | Track record (`proven_skills`, `completed_projects`) is stored on the profile | Derived from reviewed ledger entries |
 | Credentials are `CREDENTIAL_ISSUED` ledger entries only | Signed, independently verifiable credentials |

@@ -10,6 +10,8 @@
 --   Project 1 (FUNDED, Rs 1,00,000): team joined, escrow funded, work reviewed
 --     (impacts Priya 5, Arjun 3, Meera 2), Milestone 1 SUBMITTED and awaiting the
 --     sponsor. Accepting it live produces the payouts and receipts.
+--     Milestone 2 (Rs 60,000) is a DRAFT: fund it live, then upload and review
+--     work on it to show the Fund / Work / Catch steps.
 --   Project 2 (KNOWLEDGE-SHARING, Rs 0): work reviewed, milestone SUBMITTED;
 --     Ananya is INVITED but has not accepted, so her brief is still locked.
 --
@@ -185,7 +187,7 @@ values
    seed_tmp.at(21, '10:00')::date, seed_tmp.at(21, '10:00')),
   ('c0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', 2,
    'Edge-device optimisation', '{TensorFlow Lite,Model quantisation}',
-   'Model < 10 MB and < 2 s per image on the target device', 0, 'draft',
+   'Model < 10 MB and < 2 s per image on the target device', 60000, 'draft',
    seed_tmp.at(42, '10:00')::date, null),
   ('c0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000002', 1,
    'Annotated literature review (20 papers)', '{Literature review,Scientific writing}',
@@ -400,7 +402,7 @@ begin
 end;
 $$;
 
-drop schema seed_tmp cascade;
+drop schema if exists seed_tmp cascade;
 
 commit;
 

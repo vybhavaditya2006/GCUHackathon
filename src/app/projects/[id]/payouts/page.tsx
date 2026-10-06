@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AcceptMilestoneButton } from "@/components/AcceptMilestoneButton";
 import { JudgeNote } from "@/components/JudgeNote";
@@ -15,22 +16,28 @@ interface Shown {
   credentials: { name: string; title: string }[];
 }
 
-export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/payouts">) {
+export default async function PayoutsPage({ params, searchParams }: PageProps<"/projects/[id]/payouts">) {
   const { id } = await params;
+  const { m: wanted } = await searchParams;
   const view = await getProjectView(id);
   if (!view) notFound();
   const { user, charter, membership, isSponsor } = view;
 
-  const milestone = view.milestones.find((m) => m.status !== "draft") ?? view.milestones[0];
+  // ?m=2 picks a milestone; otherwise show the one waiting for a decision, then the first one with work on it.
+  const milestone =
+    view.milestones.find((m) => String(m.position) === wanted) ??
+    view.milestones.find((m) => m.status === "submitted") ??
+    view.milestones.find((m) => m.status !== "draft") ??
+    view.milestones[0];
   // Team transparency: the sponsor, admins and ACTIVE members see the whole split, so anyone on the
   // team can check it. Someone who has left sees only their own share; outsiders see nothing.
   const seesAll = isSponsor || user.role === "admin" || membership?.status === "active";
   const canAccept = isSponsor || user.role === "admin";
   const onTeam = seesAll || (membership !== null && membership.status !== "invited");
-  const monetary = charter ? isPaidModel(charter.model) : false;
+  const paidCharter = charter ? isPaidModel(charter.model) : false;
   const accepted = milestone?.status === "accepted";
 
-  const heading = (
+  const heading = (monetary: boolean) => (
     <div>
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">5 · Credit &amp; Payment</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">
@@ -42,7 +49,7 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
   if (!milestone || !charter || !onTeam) {
     return (
       <>
-        {heading}
+        {heading(paidCharter)}
         <p className="rounded-lg border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
           {!onTeam
             ? "Payouts and receipts are visible to the project team. You are not on this project's team."
@@ -98,6 +105,9 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
   }
 
   const s = shown.summary;
+  // Money is judged per milestone: one paid out under an earlier, paid charter version stays a paid
+  // milestone even if the charter has since gone unpaid.
+  const monetary = s ? s.budget > 0 : paidCharter;
   const waterfall: { label: string; amount: number; tone: "money" | "taken" | "pool"; indent?: boolean }[] = s
     ? [
         { label: "Milestone budget in escrow", amount: s.budget, tone: "pool" },
@@ -118,7 +128,7 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        {heading}
+        {heading(monetary)}
         {milestone.status === "submitted" && canAccept && (
           <AcceptMilestoneButton
             milestoneId={milestone.id}
@@ -132,6 +142,25 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
         work in the ledger, and stores each payout with the receipt that explains it. Until then this page shows a
         live preview from the same function.
       </JudgeNote>
+
+      {view.milestones.length > 1 && (
+        <nav aria-label="Milestones" className="flex flex-wrap gap-1.5">
+          {view.milestones.map((m) => (
+            <Link
+              key={m.id}
+              href={`/projects/${id}/payouts?m=${m.position}`}
+              aria-current={m.id === milestone.id ? "page" : undefined}
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                m.id === milestone.id
+                  ? "border-accent bg-accent text-accent-foreground"
+                  : "border-border bg-card text-muted-foreground hover:border-accent"
+              }`}
+            >
+              Milestone {m.position} · {m.status}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
         <span className="font-medium">
@@ -174,8 +203,8 @@ export default async function PayoutsPage({ params }: PageProps<"/projects/[id]/
 
       {!monetary && (
         <p className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          This is a knowledge-sharing project: no escrow, no payouts. The same engine still records each
-          person&apos;s reviewed weight, and acceptance issues credentials instead of money.
+          No money moves on this milestone: the charter is unpaid, so there is no escrow and no payout. The same
+          engine still records each person&apos;s reviewed weight, and acceptance issues credentials instead of money.
         </p>
       )}
 

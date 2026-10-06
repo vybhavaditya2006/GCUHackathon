@@ -9,7 +9,9 @@ import {
   type SplitResult,
 } from "@/lib/engine/computeSplit";
 
-const termsSchema = z.object({
+import { teamAtSubmission, type TeamLedgerEntry } from "@/lib/splitTeam";
+
+const termsSchema =z.object({
   feePct: z.number(),
   aiReservePct: z.number(),
   expertPct: z.number(),
@@ -88,7 +90,22 @@ export async function loadSplit(milestoneId: string): Promise<LoadedSplit | null
   const { data: profiles } = await db.from("profiles").select("id, full_name").in("id", [...ids]);
   const names = new Map((profiles ?? []).map((p) => [p.id as string, p.full_name as string]));
 
-  const members: SplitMember[] = memberRows.map((m) => ({
+  // Only people who had accepted the charter by the time this milestone was
+  // submitted are on its split; a later joiner did not work on it.
+  const { data: teamEntries } = await db
+    .from("ledger")
+    .select("seq, actor, event, payload")
+    .eq("project_id", milestone.project_id)
+    .in("event", ["CHARTER_ACCEPTED", "MILESTONE_SUBMITTED"]);
+  const onSplit = new Set(
+    teamAtSubmission(
+      memberRows.map((m) => m.user_id as string),
+      milestone.id,
+      (teamEntries ?? []) as TeamLedgerEntry[],
+    ),
+  );
+
+  const members: SplitMember[] = memberRows.filter((m) => onSplit.has(m.user_id)).map((m) => ({
     userId: m.user_id,
     name: names.get(m.user_id) ?? "Unknown member",
     role: m.role,

@@ -152,7 +152,7 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
 
         <section className={card}>
           <h2 className="text-sm font-semibold">Payment status</h2>
-          {paid ? (
+          {paid || payouts.length > 0 || escrows.length > 0 ? (
             <dl className="mt-3 flex flex-col gap-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Paid to people</dt>
@@ -177,6 +177,7 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
             </p>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
+            {!paid && payouts.length > 0 && "The charter has since gone unpaid; what was already paid stays paid. "}
             All payments are simulated.{" "}
             <Link href={`/projects/${id}/payouts`} className="text-accent underline-offset-4 hover:underline">
               See each receipt

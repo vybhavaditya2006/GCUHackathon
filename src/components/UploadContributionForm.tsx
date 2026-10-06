@@ -110,7 +110,8 @@ export function UploadContributionForm({
           {busy ? "Fingerprinting..." : "Upload contribution"}
         </button>
         <span className="text-xs text-muted-foreground">
-          The file is fingerprinted (SHA-256), checked for similarity and recorded in the ledger.
+          The file is fingerprinted (SHA-256), checked for similarity, stored privately for the team and recorded in
+          the ledger.
         </span>
       </div>
       {result && (

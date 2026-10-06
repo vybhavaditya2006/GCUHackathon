@@ -141,8 +141,8 @@ Every mock is listed here with what production would use.
 | Agent cost is tokens x a made-up rupee price list (`src/lib/agents/prompt.ts`) | The provider's real billing, debited from the AI reserve |
 | The research / coding agent reads the project summary, the brief and notes the member pastes in | Retrieval over this project's stored files only |
 | Matching falls back to a fixed-wording reason when the LLM is unavailable (labelled on the page) | Same fallback, plus retries and monitoring |
-| Uploaded files are fingerprinted (SHA-256) and then discarded; only the name and hash are kept | The file stored in a private Supabase Storage bucket with per-member access |
-| Artefact fingerprints in the seed are hashes of a file name, not of a file | SHA-256 of the uploaded file in private storage |
+| Uploaded files (up to 1 MB) are kept in one private Supabase Storage bucket; downloads go through an API route that checks team access with RLS and re-checks the SHA-256. Opening a file is not itself written to the ledger | Larger files with resumable uploads, storage-level access policies, in-browser preview, and an access-log entry per download |
+| Seeded contributions are records only: their fingerprints are hashes of a file name and there is no file to open | SHA-256 of the uploaded file in private storage |
 | Track record (`proven_skills`, `completed_projects`) is stored on the profile | Derived from reviewed ledger entries |
 | Credentials are `CREDENTIAL_ISSUED` ledger entries only | Signed, independently verifiable credentials |
 | The task board is read-only seeded data: tasks cannot be created, reassigned or moved in the app | Leads create and assign tasks; a task moves to "in review" / "done" from its contribution and review, each change a ledger entry |

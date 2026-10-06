@@ -1,4 +1,5 @@
 import "server-only";
+import { removeArtefact, storeArtefact } from "@/lib/artefacts";
 import { adminDb } from "@/lib/db";
 import { sha256Hex, similarity } from "@/lib/integrity";
 
@@ -35,12 +36,20 @@ export interface ContributionResult {
   seq: number;
 }
 
-/** Fingerprints the file, runs the (mocked) similarity check and records the contribution. */
+/** Fingerprints the file, runs the (mocked) similarity check, stores the file and records the contribution. */
 export async function addContribution(input: NewContribution): Promise<ContributionResult> {
   const artefactHash = sha256Hex(input.bytes);
   const check = similarity(new TextDecoder().decode(input.bytes));
 
-  const result = await call<{ contribution_id: string; flagged: boolean; version: number; seq: number }>("add_contribution", {
+  const { data: milestone } = await adminDb().from("milestones").select("project_id").eq("id", input.milestoneId).maybeSingle();
+  if (!milestone) throw new WorkError("milestone not found");
+
+  // The file goes into private storage first, so the ledger never points at a file that is not there.
+  // If the SQL function then refuses the contribution, the file is taken out again.
+  const newlyStored = await storeArtefact(milestone.project_id, artefactHash, input.bytes);
+
+  type Added = { contribution_id: string; flagged: boolean; version: number; seq: number };
+  const result = await call<Added>("add_contribution", {
     p_milestone_id: input.milestoneId,
     p_author_id: input.authorId,
     p_title: input.title,
@@ -51,6 +60,9 @@ export async function addContribution(input: NewContribution): Promise<Contribut
     p_ai_share: 0,
     p_similarity: check.score,
     p_builds_on: input.buildsOn ?? null,
+  }).catch(async (err) => {
+    if (newlyStored) await removeArtefact(milestone.project_id, artefactHash);
+    throw err;
   });
 
   return {

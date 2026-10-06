@@ -3,6 +3,7 @@ import { AgentError, runAgent } from "@/lib/agents/gateway";
 import { reviewInstructions, reviewSchema, reviewTask } from "@/lib/agents/prompts/review";
 import { scopingInstructions, scopingSchema, scopingTask } from "@/lib/agents/prompts/scoping";
 import { workspaceInstructions, workspaceSchema, workspaceTask } from "@/lib/agents/prompts/workspace";
+import { removeArtefact, storeArtefact } from "@/lib/artefacts";
 import { adminDb } from "@/lib/db";
 import { sha256Hex } from "@/lib/integrity";
 
@@ -108,21 +109,29 @@ export interface DraftApproval {
  */
 export async function approveDraft(input: DraftApproval) {
   const db = adminDb();
-  const { data: draft } = await db.from("agent_drafts").select("agent, output").eq("id", input.draftId).maybeSingle();
+  const { data: draft } = await db.from("agent_drafts").select("agent, output, project_id").eq("id", input.draftId).maybeSingle();
   const parsed = workspaceSchema.safeParse(draft?.output);
   if (!draft || !parsed.success) throw new AgentError("Draft not found.");
+
+  // The approved text is the contribution's file: stored privately so the team can open it.
+  const bytes = new TextEncoder().encode(input.content);
+  const hash = sha256Hex(bytes);
+  const newlyStored = await storeArtefact(draft.project_id, hash, bytes);
 
   const { data, error } = await db.rpc("approve_agent_draft", {
     p_draft_id: input.draftId,
     p_owner_id: input.ownerId,
     p_title: parsed.data.title,
     p_artefact_name: `${draft.agent}_draft_${input.draftId.slice(0, 8)}.md`,
-    p_artefact_hash: sha256Hex(new TextEncoder().encode(input.content)),
+    p_artefact_hash: hash,
     p_ai_share: input.aiShare,
     p_ai_declaration: input.aiDeclaration,
     p_edited: input.content.trim() !== parsed.data.content.trim(),
   });
-  if (error) throw new AgentError(error.message.replace(/^(approve_agent_draft|add_contribution):\s*/, ""));
+  if (error) {
+    if (newlyStored) await removeArtefact(draft.project_id, hash);
+    throw new AgentError(error.message.replace(/^(approve_agent_draft|add_contribution):\s*/, ""));
+  }
   return data as { contribution_id: string; seq: number };
 }
 

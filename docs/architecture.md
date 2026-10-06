@@ -45,7 +45,7 @@ Three rules hold the design together:
 | Login, role-aware dashboard | `src/app/login`, `src/app/dashboard`, `lib/auth.ts` | Built |
 | 1 Discovery: locked brief, charter accept, leave | `src/app/projects/[id]`, `lib/charter.ts`, `lib/access.ts` | Built |
 | 2 AI Scoping & Matching: proposal, ranked candidates, invite | `…/scope`, `lib/matching.ts`, `lib/matchingScore.ts` | Built |
-| 3 Workspace: escrow, uploads, integrity check, reviews, agent drafts | `…/workspace`, `lib/work.ts`, `lib/integrity.ts`, `lib/drafts.ts` | Built |
+| 3 Workspace: escrow, uploads kept in private storage, integrity check, reviews, agent drafts | `…/workspace`, `lib/work.ts`, `lib/artefacts.ts`, `lib/integrity.ts`, `lib/drafts.ts` | Built |
 | 4 Ledger + Verify | `…/ledger`, `lib/ledger.ts`, `lib/ledgerView.ts` | Built |
 | 5 Credit & Payment: waterfall, receipts, accept | `…/payouts`, `lib/split.ts`, `lib/escrow.ts` | Built |
 | 6 Final record: outcome, human vs AI, credentials, audit trail | `…/record` | Built |
@@ -53,7 +53,7 @@ Three rules hold the design together:
 | AI gateway and four agents | `lib/agents/gateway.ts`, `prompts/` | Built |
 | Admin console: ledger audit, disputes, demo controls | `src/app/admin`, `lib/corner.ts` | Built |
 
-**Stack:** Next.js (App Router) + TypeScript, Tailwind CSS, Supabase (Postgres, Auth, RLS), Groq (model from
+**Stack:** Next.js (App Router) + TypeScript, Tailwind CSS, Supabase (Postgres, Auth, RLS, private Storage), Groq (model from
 `GROQ_MODEL`, currently `openai/gpt-oss-120b`), Zod, Vitest + PGlite (in-process Postgres for database tests).
 
 ## 3. Data model
@@ -203,7 +203,7 @@ The README lists every simplification in full.
 
 ## 11. Testing
 
-- `npm test` runs 78 Vitest tests: the engine against the handout's numbers (plus pro-rata exit and zero budget); the
+- `npm test` runs 83 Vitest tests: the engine against the handout's numbers (plus pro-rata exit and zero budget); the
   schema, seed, RLS policies, hash chain, tamper detection and every state-changing SQL function against an
   in-process Postgres (PGlite); and the pure rules for access, matching, integrity, the ledger view, the split team
   and the prompt-injection defence.

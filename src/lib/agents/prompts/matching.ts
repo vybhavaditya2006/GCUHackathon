@@ -11,6 +11,8 @@ export const matchingInstructions = [
   "The ranking is already done by a fixed scoring rule; you do not change scores or order.",
   "For each candidate, write one plain sentence a sponsor can read that explains the score from its breakdown.",
   "Mention only facts present in the breakdown. Never mention age, gender, college prestige or anything not given.",
+  "The newcomer points are a boost added to the score of someone with no completed project, never a penalty; if they are 0, leave them out.",
+  'Refer to each person by name, not as "the candidate".',
 ].join(" ");
 
 export const matchingTask = [

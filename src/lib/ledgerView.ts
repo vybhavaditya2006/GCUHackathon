@@ -55,6 +55,11 @@ const str = (v: unknown): string | null => (typeof v === "string" && v ? v : nul
 const numOf = (v: unknown): number | null => (typeof v === "number" ? v : null);
 const rupees = (v: unknown) => formatRupees(Number(v ?? 0));
 
+/** "v2 · replaces Baseline CNN notes (v1)": how a contribution that builds on an earlier one is shown. */
+export function versionLabel(version: number, parentTitle: string | null, parentVersion: number): string {
+  return `v${version} · replaces ${parentTitle ?? "an earlier contribution"} (v${parentVersion})`;
+}
+
 const MONEY = new Set(["ESCROW_FUNDED", "MILESTONE_ACCEPTED", "PAYOUT_ISSUED"]);
 const REVIEW = new Set(["REVIEW_DONE", "SIMILARITY_FLAGGED", "MILESTONE_REJECTED", "DISPUTE_RAISED", "DISPUTE_RESOLVED"]);
 
@@ -82,8 +87,10 @@ function describe(e: LedgerEntry, nameOf: (id: unknown) => string): string {
       return str(p.summary) ?? `Ran the ${p.agent} agent`;
     case "AGENT_DRAFT_APPROVED":
       return `Approved the ${p.agent} agent draft${p.edited ? " after editing it" : ""}`;
-    case "CONTRIBUTION_ADDED":
-      return str(p.title) ?? "Added a contribution";
+    case "CONTRIBUTION_ADDED": {
+      const title = str(p.title) ?? "Added a contribution";
+      return str(p.builds_on) ? `${title} · ${versionLabel(Number(p.version), str(p.builds_on_title), Number(p.builds_on_version))}` : title;
+    }
     case "SIMILARITY_FLAGGED":
       return `Similarity ${Math.round(Number(p.similarity) * 100)}% on ${p.artefact} (threshold ${Math.round(Number(p.threshold) * 100)}%)`;
     case "REVIEW_DONE":

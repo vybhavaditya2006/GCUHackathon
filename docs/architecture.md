@@ -58,8 +58,9 @@ Three rules hold the design together:
 
 ## 3. Data model
 
-13 tables. The 10 entities named in the handout, plus `project_briefs` (kept separate so a row-level policy can
-lock it), `memberships` (which charter version each member accepted) and `agent_drafts` (AI output awaiting approval).
+14 tables. The 10 entities named in the handout, plus `project_briefs` (kept separate so a row-level policy can
+lock it), `memberships` (which charter version each member accepted), `agent_drafts` (AI output awaiting approval)
+and `tasks` (how a milestone is split: one human owner per task, closed by a contribution).
 
 | Table | Key fields |
 |---|---|
@@ -68,7 +69,8 @@ lock it), `memberships` (which charter version each member accepted) and `agent_
 | `charters` | project, **version**, engagement model (funded, stipend, knowledge-sharing, institutional credit), terms |
 | `memberships` | project, user, role, status (invited/active/inactive/exited), **accepted charter version**, active fraction |
 | `milestones` / `escrows` | criteria, amount, status / amount, status (funded, released, frozen, refunded) |
-| `contributions` / `reviews` | **human owner**, agent used, AI share, artefact SHA-256, similarity / verdict, impact 0–10 |
+| `contributions` / `reviews` | **human owner**, agent used, AI share, artefact SHA-256, similarity, **version + builds_on** (a new version points at the one it replaces; nothing is overwritten) / verdict, impact 0–10 |
+| `tasks` | milestone, title, **owner**, status (todo/in review/done), the contribution that closed it |
 | `payouts` | amount, **stored receipt lines**, charter version used |
 | `disputes`, `agent_drafts` | reason, criterion cited, resolution / AI output pending human approval |
 | `ledger` | seq, timestamp, project, actor, **on_behalf_of**, event, payload, prev_hash, hash |

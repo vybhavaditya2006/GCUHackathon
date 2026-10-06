@@ -21,8 +21,8 @@ Problem: "Collaborative Research Ecosystem". Rounds: 1 Pitch (done) → 2 PoC on
 ## Status right now
 - [x] CLAUDE.md (full spec), docs/KICKOFF.md (phase prompts), .env.example
 - [x] .env.local has the Supabase URL + publishable key. **Still to fill (by a human, never in chat):** SUPABASE_SECRET_KEY, GROQ_API_KEY, GROQ_MODEL
-- [ ] Phase 0 scaffold: **not started**. No package.json yet.
-- [ ] Add `Claude outputs/` to .gitignore
+- [x] Phases 0–7 are built and merged to `main` (6 Oct). See the README "Status" section and `docs/DEMO_SCRIPT.md`.
+- [ ] Record the ≤ 3 min demo video; export `docs/architecture.md` to PDF (2–4 pages)
 
 ## Design references (in docs/design/)
 - `Executable_Charter_PoC_6_Sheets.pdf`: **the UI target**. The 6 screens (Discovery, Scoping & Matching, Workspace, **Ledger = hero**, Credit & Payment, Final Record) with exact sample data, colours, the top bar + journey stepper, and a "Judge note" strip on each. Build the pages to look like this.

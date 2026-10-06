@@ -58,17 +58,21 @@ npm run build      # production build
 
 ### Database setup
 
-In the Supabase dashboard, open **SQL Editor**. For each file, paste the whole file and press Run:
+Run `npm run db:bundle`. It writes two files. In the Supabase dashboard, open **SQL Editor** and, for each one in
+this order, paste the whole file into an empty tab and press Run:
 
-1. `supabase/migrations/001_schema.sql`: tables, RLS, ledger functions, state-changing functions.
-2. `supabase/migrations/002_work_functions.sql`: review and milestone-submission functions.
-3. `supabase/migrations/003_agent_functions.sql`: agent drafts, scoping approval and invitations.
-4. `supabase/migrations/004_corner_cases.sql`: member exit, charter change, rejection, disputes.
-5. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
+1. `supabase/paste_1_schema.sql`: migrations 001 to 005 in one transaction (tables, RLS, the ledger and every
+   state-changing function). Safe to re-run on a database that already has some or all of them; it keeps the data.
+   The result row says `schema ok`, 14 tables.
+2. `supabase/paste_2_seed.sql`: wipes and rebuilds the synthetic demo data. The result row should show
+   `chain_ok = true` and 46 ledger entries.
 
-Shortcut once `001_schema.sql` is in place: `npm run db:bundle` writes `supabase/paste_me.sql` (migrations 002 to 004 plus the seed) so an update is one paste.
+The sources are `supabase/migrations/001_schema.sql` (schema, RLS, ledger), `002_work_functions.sql` (reviews,
+submission), `003_agent_functions.sql` (agent drafts, scoping approval, invitations), `004_corner_cases.sql`
+(member exit, charter change, rejection, disputes), `005_tasks_versions.sql` (the `tasks` table and contribution
+versions) and `supabase/seed.sql`. Each can also be pasted on its own, in that order.
 
-`npm run demo:dryrun` rehearses the whole demo over HTTP against the running dev server and the real Supabase project (about 60 checks, four real LLM calls). It needs a freshly seeded database and changes demo state, so paste `supabase/paste_me.sql` again afterwards. The SQL editor may show `schema "seed_tmp" does not exist` after running the seed even though it succeeded; check the app or the ledger count (46) rather than that message.
+`npm run demo:dryrun` rehearses the whole demo over HTTP against the running dev server and the real Supabase project (about 60 checks, four real LLM calls). It needs a freshly seeded database and changes demo state, so paste `supabase/paste_2_seed.sql` again afterwards. If the SQL editor ever shows `schema "seed_tmp" does not exist` for the seed, check the Ledger page's Verify (46 entries) before assuming it failed: that message has appeared on runs that did commit.
 
 Every seeded user signs in with the password `demo1234`, for example `anjali@charter.test` (sponsor),
 `kiran@charter.test` (expert), `priya@charter.test` (student) and `admin@charter.test` (admin).
@@ -141,6 +145,8 @@ Every mock is listed here with what production would use.
 | Artefact fingerprints in the seed are hashes of a file name, not of a file | SHA-256 of the uploaded file in private storage |
 | Track record (`proven_skills`, `completed_projects`) is stored on the profile | Derived from reviewed ledger entries |
 | Credentials are `CREDENTIAL_ISSUED` ledger entries only | Signed, independently verifiable credentials |
+| The task board is read-only seeded data: tasks cannot be created, reassigned or moved in the app | Leads create and assign tasks; a task moves to "in review" / "done" from its contribution and review, each change a ledger entry |
+| A new version records which contribution it builds on (`version`, `builds_on`); the files themselves are not diffed or merged | Stored file versions with diffs, and merge history from the team's repository |
 | Tamper evidence relies on one hash chain held by the platform | Periodically anchor the latest hash somewhere public |
 
 <!-- Add a row whenever something is mocked (payments/escrow, KYC, similarity check, ...). -->

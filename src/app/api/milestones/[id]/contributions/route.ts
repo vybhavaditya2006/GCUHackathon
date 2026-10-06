@@ -10,9 +10,11 @@ const fields = z.object({
   title: z.string().trim().min(3).max(120),
   // The AI-use declaration is mandatory on every upload.
   aiDeclaration: z.string().trim().min(3).max(500),
+  // Optional: the earlier contribution this one builds on or replaces.
+  buildsOn: z.uuid().nullable(),
 });
 
-/** Upload a contribution (multipart form: file, title, aiDeclaration). */
+/** Upload a contribution (multipart form: file, title, aiDeclaration, optional buildsOn). */
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/milestones/[id]/contributions">) {
   const { id } = await ctx.params;
   if (!isUuid(id)) return Response.json({ error: "Milestone not found." }, { status: 404 });
@@ -22,7 +24,11 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/milestones/
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
-  const parsed = fields.safeParse({ title: form?.get("title"), aiDeclaration: form?.get("aiDeclaration") });
+  const parsed = fields.safeParse({
+    title: form?.get("title"),
+    aiDeclaration: form?.get("aiDeclaration"),
+    buildsOn: form?.get("buildsOn") || null,
+  });
   if (!parsed.success || !(file instanceof File) || file.size === 0) {
     return Response.json(
       { error: "Add a file, a title and an AI-use declaration (say \"No AI used\" if that is the case)." },
@@ -41,6 +47,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/milestones/
       fileName: file.name.slice(0, 120),
       bytes: new Uint8Array(await file.arrayBuffer()),
       aiDeclaration: parsed.data.aiDeclaration,
+      buildsOn: parsed.data.buildsOn,
     });
     return Response.json(result);
   } catch (err) {

@@ -64,12 +64,14 @@ async function assertOwner(agent: AgentName, projectId: string, ownerId: string)
 }
 
 async function assertWithinRateLimit(ownerId: string) {
-  const since = new Date(Date.now() - 60_000).toISOString();
+  const now = Date.now();
+  // Upper bound too: the seeded drafts carry story dates in the future and must not count.
   const { count } = await adminDb()
     .from("agent_drafts")
     .select("id", { count: "exact", head: true })
     .eq("owner_id", ownerId)
-    .gte("created_at", since);
+    .gte("created_at", new Date(now - 60_000).toISOString())
+    .lte("created_at", new Date(now).toISOString());
   if ((count ?? 0) >= MAX_CALLS_PER_MINUTE) {
     throw new AgentError(`Rate limit: at most ${MAX_CALLS_PER_MINUTE} agent runs per minute. Try again shortly.`);
   }

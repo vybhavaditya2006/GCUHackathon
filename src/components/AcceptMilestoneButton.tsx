@@ -3,7 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function AcceptMilestoneButton({ milestoneId, label }: { milestoneId: string; label: string }) {
+export function AcceptMilestoneButton({
+  milestoneId,
+  label,
+  stayOn,
+}: {
+  milestoneId: string;
+  label: string;
+  /** Where to land afterwards, so the page keeps showing the milestone that was just accepted. */
+  stayOn: string;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +27,7 @@ export function AcceptMilestoneButton({ milestoneId, label }: { milestoneId: str
         setError(body?.error ?? "Could not accept the milestone.");
         return;
       }
+      router.replace(stayOn);
       router.refresh();
     } catch {
       setError("Network error. Try again.");

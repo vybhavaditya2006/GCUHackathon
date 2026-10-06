@@ -132,6 +132,7 @@ export default async function PayoutsPage({ params, searchParams }: PageProps<"/
         {milestone.status === "submitted" && canAccept && (
           <AcceptMilestoneButton
             milestoneId={milestone.id}
+            stayOn={`/projects/${id}/payouts?m=${milestone.position}`}
             label={monetary ? "Accept milestone and release escrow" : "Accept milestone and issue credentials"}
           />
         )}

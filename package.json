@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "next typegen && tsc --noEmit",
-    "db:bundle": "node scripts/db-bundle.mjs"
+    "db:bundle": "node scripts/db-bundle.mjs",
+    "demo:dryrun": "node scripts/demo-dryrun.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

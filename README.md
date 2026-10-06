@@ -68,6 +68,8 @@ In the Supabase dashboard, open **SQL Editor**. For each file, paste the whole f
 
 Shortcut once `001_schema.sql` is in place: `npm run db:bundle` writes `supabase/paste_me.sql` (migrations 002 to 004 plus the seed) so an update is one paste.
 
+`npm run demo:dryrun` rehearses the whole demo over HTTP against the running dev server and the real Supabase project (about 60 checks, four real LLM calls). It needs a freshly seeded database and changes demo state, so paste `supabase/paste_me.sql` again afterwards. The SQL editor may show `schema "seed_tmp" does not exist` after running the seed even though it succeeded; check the app or the ledger count (46) rather than that message.
+
 Every seeded user signs in with the password `demo1234`, for example `anjali@charter.test` (sponsor),
 `kiran@charter.test` (expert), `priya@charter.test` (student) and `admin@charter.test` (admin).
 

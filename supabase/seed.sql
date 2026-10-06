@@ -402,7 +402,7 @@ begin
 end;
 $$;
 
-drop schema seed_tmp cascade;
+drop schema if exists seed_tmp cascade;
 
 commit;
 

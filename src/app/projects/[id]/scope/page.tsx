@@ -85,7 +85,7 @@ export default async function ScopePage({ params }: PageProps<"/projects/[id]/sc
             <h2 className="text-sm font-semibold">Scoping agent proposal</h2>
             <Pill tone="ai">Scoping agent · owned by {view.project.sponsor?.full_name ?? "the sponsor"}</Pill>
             {draft && (
-              <Pill tone={draft.status === "approved" ? "verified" : "pending"} className="capitalize">
+              <Pill tone={draft.status === "approved" ? "verified" : "pending"}>
                 {draft.status === "approved" ? "Approved by the sponsor" : `Draft: ${draft.status}`}
               </Pill>
             )}

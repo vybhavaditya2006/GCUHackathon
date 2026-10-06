@@ -215,7 +215,7 @@ The README lists every simplification in full.
 - Database tests run locally on **PGlite**, so the ledger and RLS were tested before touching the cloud project.
 - **LLM model:** we planned a Groq-hosted Llama model. Our Groq key is offered no Llama chat model, so the agents run
   on `openai/gpt-oss-120b`, also hosted by Groq. The gateway is unchanged; the model id is one environment variable.
-- **Payouts are transparent inside the team.** Our build spec first let each person see only their own payout. We decided
+- **Payouts are transparent inside the team.** The Round 2 design (sheet 5) said the sponsor sees all rows and each member sees their own. We decided
   a split nobody on the team can check is not a fair split, so active members see all of it.
 - **Split team rule added:** only people on the team when a milestone was submitted share in it.
 - **Not built:** per-viewer watermarking of the brief, file storage for uploads, and automatic detection of inactivity

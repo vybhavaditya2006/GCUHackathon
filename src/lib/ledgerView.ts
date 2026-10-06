@@ -38,6 +38,8 @@ export interface ReviewedWeight {
   impact: number;
   /** 0..1 share of the total reviewed impact. */
   weight: number;
+  /** 0..1: how much of this person's reviewed impact was AI-assisted. */
+  aiShare: number;
 }
 
 const timeFormat = new Intl.DateTimeFormat("en-IN", {
@@ -120,13 +122,17 @@ export function toLedgerRows(entries: LedgerEntry[], names: Record<string, strin
   const nameOf = (id: unknown) => (typeof id === "string" && names[id]) || "someone";
 
   // What later entries say about earlier ones.
-  const reviews = new Map<string, { verdict: string; impact: number }>();
+  const reviews = new Map<string, { verdict: string; impact: number; reviewer: string }>();
   const flagged = new Set<string>();
   const approvedDrafts = new Set<string>();
   for (const e of entries) {
     const p = e.payload;
     if (e.event === "REVIEW_DONE" && str(p.contribution_id)) {
-      reviews.set(p.contribution_id as string, { verdict: String(p.verdict), impact: Number(p.impact) });
+      reviews.set(p.contribution_id as string, {
+        verdict: String(p.verdict),
+        impact: Number(p.impact),
+        reviewer: nameOf(e.actor),
+      });
     } else if (e.event === "SIMILARITY_FLAGGED" && str(p.contribution_id)) {
       flagged.add(p.contribution_id as string);
     } else if ((e.event === "AGENT_DRAFT_APPROVED" || e.event === "MILESTONES_APPROVED") && str(p.draft_id)) {
@@ -141,7 +147,10 @@ export function toLedgerRows(entries: LedgerEntry[], names: Record<string, strin
         const id = p.contribution_id as string;
         if (flagged.has(id)) return { label: "Flagged: similarity", tone: "alert" };
         const review = reviews.get(id);
-        if (review) return { label: `Reviewed, impact ${review.impact}`, tone: "verified" };
+        if (review && review.verdict !== "approved") {
+          return { label: `Not approved by ${review.reviewer}`, tone: "alert" };
+        }
+        if (review) return { label: `Reviewed by ${review.reviewer}, impact ${review.impact}`, tone: "verified" };
         return { label: "Awaiting review", tone: "pending" };
       }
       case "AGENT_ACTION":
@@ -171,7 +180,8 @@ export function toLedgerRows(entries: LedgerEntry[], names: Record<string, strin
       event: e.event,
       action: describe(e, nameOf),
       evidence: evidenceOf(e.payload),
-      aiShare: numOf(e.payload.ai_share) ?? (isAgent ? 1 : null),
+      // An agent's own output is all AI. The integrity check is a rule, not generated content.
+      aiShare: numOf(e.payload.ai_share) ?? (isAgent && e.actor !== "agent:integrity" ? 1 : null),
       verification: verify(e),
       hash: e.hash,
       category: MONEY.has(e.event) ? "money" : REVIEW.has(e.event) ? "review" : "other",
@@ -181,11 +191,23 @@ export function toLedgerRows(entries: LedgerEntry[], names: Record<string, strin
 
 /** Weights come from approved expert reviews in the ledger, never from commit counts. */
 export function reviewedWeights(entries: LedgerEntry[], names: Record<string, string>): ReviewedWeight[] {
+  // The AI share each contribution declared when it was added.
+  const declared = new Map<string, number>();
+  for (const e of entries) {
+    if (e.event === "CONTRIBUTION_ADDED" && str(e.payload.contribution_id)) {
+      declared.set(e.payload.contribution_id as string, Number(e.payload.ai_share ?? 0));
+    }
+  }
+
   const impact = new Map<string, number>();
+  const aiImpact = new Map<string, number>();
   for (const e of entries) {
     if (e.event !== "REVIEW_DONE" || e.payload.verdict !== "approved") continue;
     const author = str(e.payload.author_id);
-    if (author) impact.set(author, (impact.get(author) ?? 0) + Number(e.payload.impact ?? 0));
+    if (!author) continue;
+    const value = Number(e.payload.impact ?? 0);
+    impact.set(author, (impact.get(author) ?? 0) + value);
+    aiImpact.set(author, (aiImpact.get(author) ?? 0) + value * (declared.get(String(e.payload.contribution_id)) ?? 0));
   }
   const total = [...impact.values()].reduce((a, b) => a + b, 0);
   return [...impact]
@@ -194,6 +216,7 @@ export function reviewedWeights(entries: LedgerEntry[], names: Record<string, st
       name: names[userId] ?? "someone",
       impact: value,
       weight: total > 0 ? value / total : 0,
+      aiShare: value > 0 ? Math.round(((aiImpact.get(userId) ?? 0) / value) * 1000) / 1000 : 0,
     }))
     .sort((a, b) => b.impact - a.impact);
 }

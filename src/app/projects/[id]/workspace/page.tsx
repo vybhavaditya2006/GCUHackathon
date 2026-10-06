@@ -45,13 +45,14 @@ const statusTone: Record<string, PillTone> = {
 };
 
 // Who can see what, as enforced by the RLS policies in 001_schema.sql.
-const matrix: { what: string; sponsor: string; member: string; invited: string; admin: string; outsider: string }[] = [
-  { what: "Public summary and charter", sponsor: "Yes", member: "Yes", invited: "Yes", admin: "Yes", outsider: "Yes" },
-  { what: "Confidential brief", sponsor: "Yes", member: "After accepting", invited: "No", admin: "No", outsider: "No" },
-  { what: "Documents and reviews", sponsor: "Yes", member: "Yes", invited: "No", admin: "Yes", outsider: "No" },
-  { what: "Ledger", sponsor: "Yes", member: "Yes", invited: "No", admin: "Yes", outsider: "No" },
-  { what: "Payouts and receipts", sponsor: "Yes", member: "Yes", invited: "No", admin: "Yes", outsider: "No" },
-  { what: "An agent's draft", sponsor: "Own", member: "Own", invited: "No", admin: "Yes", outsider: "No" },
+const matrix: { what: string; sponsor: string; member: string; invited: string; admin: string; outsider: string; agent: string }[] = [
+  { what: "Public summary and charter", sponsor: "Yes", member: "Yes", invited: "Yes", admin: "Yes", outsider: "Yes", agent: "This project only" },
+  { what: "Confidential brief", sponsor: "Yes", member: "After accepting", invited: "No", admin: "No", outsider: "No", agent: "Its owner's project only" },
+  { what: "Documents and reviews", sponsor: "Yes", member: "Yes", invited: "No", admin: "Yes", outsider: "No", agent: "Review agent only" },
+  { what: "Ledger", sponsor: "Yes", member: "Yes", invited: "No", admin: "Yes", outsider: "No", agent: "No" },
+  { what: "Payouts and receipts", sponsor: "Yes", member: "Yes", invited: "No", admin: "Yes", outsider: "No", agent: "No" },
+  { what: "An agent's draft", sponsor: "Own", member: "Own", invited: "No", admin: "Yes", outsider: "No", agent: "Writes drafts only" },
+  { what: "Approve, review, pay", sponsor: "Accept and pay", member: "Own work; expert reviews", invited: "No", admin: "Disputes only", outsider: "No", agent: "Never" },
 ];
 
 const agents = [
@@ -135,7 +136,7 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
     return {
       id: d.id,
       agent: d.agent,
-      title: out.title ?? `${d.agent} draft`,
+      title: out.title ?? `${d.agent.charAt(0).toUpperCase()}${d.agent.slice(1)} draft`,
       summary: out.summary ?? "",
       content: out.content ?? "",
       // Seeded drafts have no text, so there is nothing to approve from them.
@@ -444,7 +445,7 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
           <table className="w-full min-w-[40rem] text-left text-sm">
             <thead className="border-b border-border text-xs text-muted-foreground">
               <tr>
-                {["", "Sponsor", "Active member", "Invited", "Admin", "Outsider"].map((h) => (
+                {["", "Sponsor", "Active member", "Invited", "Admin", "Outsider", "AI agent"].map((h) => (
                   <th key={h} className="px-2 py-2 font-medium">
                     {h}
                   </th>
@@ -455,8 +456,11 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
               {matrix.map((row) => (
                 <tr key={row.what}>
                   <td className="px-2 py-2 font-medium">{row.what}</td>
-                  {[row.sponsor, row.member, row.invited, row.admin, row.outsider].map((cell, i) => (
-                    <td key={i} className={`px-2 py-2 ${cell === "No" ? "text-alert" : cell === "Yes" ? "text-verified" : ""}`}>
+                  {[row.sponsor, row.member, row.invited, row.admin, row.outsider, row.agent].map((cell, i) => (
+                    <td
+                      key={i}
+                      className={`px-2 py-2 ${i === 5 ? "bg-ai-soft " : ""}${cell === "No" || cell === "Never" ? "text-alert" : cell === "Yes" ? "text-verified" : ""}`}
+                    >
                       {cell}
                     </td>
                   ))}
@@ -466,7 +470,8 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
           </table>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Enforced by row-level security in the database, not by this page. Access ends the moment a member exits.
+          Enforced by row-level security in the database and by the agent gateway, not by this page. Access ends the
+          moment a member exits. No AI agent runs without a named human owner.
         </p>
       </section>
     </>

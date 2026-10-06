@@ -27,9 +27,7 @@ export function TopBar({
         )}
         <div className="ml-auto flex shrink-0 items-center gap-3 text-sm">
           <span className="hidden sm:inline">{user.fullName}</span>
-          <Pill tone="ai" className="capitalize">
-            {roleLabel ?? user.role}
-          </Pill>
+          <Pill tone="ai">Viewing as: {roleLabel ?? user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Pill>
           <form action="/api/auth/logout" method="post">
             <button type="submit" className="text-muted-foreground underline-offset-4 hover:underline">
               Sign out

@@ -56,7 +56,7 @@ describe("toLedgerRows", () => {
   });
 
   it("links a contribution to its later review, flag or neither", () => {
-    expect(rows[2].verification).toEqual({ label: "Reviewed, impact 6", tone: "verified" });
+    expect(rows[2].verification).toEqual({ label: "Reviewed by Dr. Kiran Shetty, impact 6", tone: "verified" });
     expect(rows[2].evidence).toEqual({ label: "lit.pdf", hash: "f".repeat(64) });
     expect(rows[2].aiShare).toBe(0.8);
     expect(rows[3].verification.tone).toBe("alert");
@@ -72,8 +72,8 @@ describe("toLedgerRows", () => {
 describe("reviewedWeights", () => {
   it("weights by approved reviewed impact only", () => {
     expect(reviewedWeights(entries, names)).toEqual([
-      { userId: "priya", name: "Priya Nair", impact: 6, weight: 0.75 },
-      { userId: "arjun", name: "Arjun Mehta", impact: 2, weight: 0.25 },
+      { userId: "priya", name: "Priya Nair", impact: 6, weight: 0.75, aiShare: 0.8 },
+      { userId: "arjun", name: "Arjun Mehta", impact: 2, weight: 0.25, aiShare: 0 },
     ]);
   });
 });

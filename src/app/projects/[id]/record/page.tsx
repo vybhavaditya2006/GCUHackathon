@@ -7,7 +7,8 @@ import { userDb } from "@/lib/db";
 import { formatRupees } from "@/lib/engine/computeSplit";
 import { formatDate } from "@/lib/format";
 import { verify } from "@/lib/ledger";
-import { getProjectView } from "@/lib/projects";
+import { toLedgerRows, type LedgerEntry } from "@/lib/ledgerView";
+import { getProjectView, isUuid } from "@/lib/projects";
 
 interface ContributionRow {
   author_id: string;
@@ -16,13 +17,12 @@ interface ContributionRow {
   reviews: { verdict: string; impact: number }[];
 }
 
-interface LedgerRow {
-  seq: number;
-  ts: string;
-  event: string;
-  payload: Record<string, unknown>;
-  hash: string;
-}
+// The entries that tell the project's story on one screen.
+const KEY_EVENTS = new Set([
+  "PROJECT_POSTED", "CHARTER_PUBLISHED", "MILESTONES_APPROVED", "ESCROW_FUNDED", "SIMILARITY_FLAGGED",
+  "MILESTONE_SUBMITTED", "MILESTONE_REJECTED", "DISPUTE_RAISED", "DISPUTE_RESOLVED", "MEMBER_EXITED",
+  "MILESTONE_ACCEPTED",
+]);
 
 const statusTone: Record<string, PillTone> = {
   draft: "neutral",
@@ -61,22 +61,29 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
   const db = await userDb();
   const [contributionsRes, ledgerRes, escrowRes, chain] = await Promise.all([
     db.from("contributions").select("author_id, ai_share, flagged, reviews(verdict, impact)").eq("project_id", id),
-    db.from("ledger").select("seq, ts, event, payload, hash").eq("project_id", id).order("seq"),
+    db.from("ledger").select("seq, ts, actor, on_behalf_of, event, payload, hash").eq("project_id", id).order("seq"),
     db.from("escrows").select("amount, status, reference").eq("project_id", id),
     verify(),
   ]);
   const contributions = (contributionsRes.data ?? []) as ContributionRow[];
-  const ledger = (ledgerRes.data ?? []) as LedgerRow[];
+  const ledger = (ledgerRes.data ?? []) as LedgerEntry[];
   const escrows = escrowRes.data ?? [];
 
   const credentials = ledger.filter((e) => e.event === "CREDENTIAL_ISSUED");
   const payouts = ledger.filter((e) => e.event === "PAYOUT_ISSUED");
   const ids = new Set<string>(contributions.map((c) => c.author_id));
-  for (const e of [...credentials, ...payouts]) ids.add(String(e.payload.user_id));
+  for (const e of ledger) {
+    for (const value of [e.actor, e.on_behalf_of, e.payload.user_id, e.payload.author_id]) {
+      if (typeof value === "string" && isUuid(value)) ids.add(value);
+    }
+  }
   const { data: profiles } = ids.size
     ? await db.from("profiles").select("id, full_name").in("id", [...ids])
     : { data: [] };
   const nameOf = (uid: unknown) => profiles?.find((p) => p.id === uid)?.full_name ?? "someone";
+  const keyEvents = toLedgerRows(ledger, Object.fromEntries((profiles ?? []).map((p) => [p.id, p.full_name]))).filter(
+    (row) => KEY_EVENTS.has(row.event),
+  );
 
   // Per person: reviewed impact, and how much of it was AI-assisted (weighted by impact).
   const people = [...new Set(contributions.map((c) => c.author_id))]
@@ -115,13 +122,6 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
         entries the Verify button checks. That is the answer to &quot;who did what, and why were they paid or credited
         what they were&quot;.
       </JudgeNote>
-
-      <section className="rounded-lg border border-accent bg-ai-soft px-5 py-4">
-        <p className="text-lg font-semibold">Terms that run as code. Every rupee has a receipt.</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Contribution → Verification → Attribution → Credit / Payment, with one tamper-evident record behind all four.
-        </p>
-      </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className={card}>
@@ -271,6 +271,16 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
               </dd>
             </div>
           </dl>
+          <ol className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3 text-sm">
+            {keyEvents.map((row) => (
+              <li key={row.seq} className="grid grid-cols-[5.5rem_1fr] gap-2">
+                <span className="text-xs text-muted-foreground">{row.time.split(",")[0]}</span>
+                <span className={row.verification.tone === "alert" ? "text-alert" : row.category === "money" ? "text-verified" : ""}>
+                  {row.action}
+                </span>
+              </li>
+            ))}
+          </ol>
           <p className="mt-3 text-xs text-muted-foreground">
             Checked just now across all {chain.checked} entries.{" "}
             <Link href={`/projects/${id}/ledger`} className="text-accent underline-offset-4 hover:underline">
@@ -279,6 +289,10 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
           </p>
         </section>
       </div>
+      <section className="rounded-lg bg-primary px-5 py-4 text-center text-primary-foreground">
+        <p className="text-base font-semibold">Contribution → Verification → Attribution → Credit / Payment</p>
+        <p className="mt-1 text-sm opacity-80">Terms that run as code. Every rupee has a receipt.</p>
+      </section>
     </>
   );
 }

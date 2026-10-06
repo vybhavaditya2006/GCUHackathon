@@ -1,0 +1,115 @@
+1
+00:00:00,000 --> 00:00:03,449
+This is The Executable Charter, by TeamNoClue.
+
+2
+00:00:03,449 --> 00:00:07,329
+Terms that run as code, and every rupee has a receipt.
+
+3
+00:00:07,329 --> 00:00:12,000
+Let's follow one funded research project, from posting to payout.
+
+4
+00:00:12,000 --> 00:00:18,672
+Doctor Anjali posts a one lakh rupee project on detecting diabetic retinopathy.
+
+5
+00:00:18,672 --> 00:00:24,415
+The charter, budget and milestones are public before anyone applies.
+
+6
+00:00:24,415 --> 00:00:27,540
+But the confidential brief is locked.
+
+7
+00:00:27,540 --> 00:00:37,000
+Rohan is not on the team, so he sees it locked, and that is enforced by the database, not just hidden on screen.
+
+8
+00:00:37,000 --> 00:00:44,071
+An AI scoping agent drafted these milestones, and Anjali approved them.
+
+9
+00:00:44,071 --> 00:00:49,649
+Matching ranks candidates with a fixed, published score.
+
+10
+00:00:49,649 --> 00:00:53,533
+The AI only writes the one-line reason.
+
+11
+00:00:53,533 --> 00:01:02,000
+Rohan is filtered out for a conflict of interest, and a human sends every invitation.
+
+12
+00:01:02,000 --> 00:01:11,179
+Arjun accepted charter version one, so the brief unlocks for him, and every view is logged.
+
+13
+00:01:11,179 --> 00:01:18,644
+The workspace shows the money is already in escrow before any work starts.
+
+14
+00:01:18,644 --> 00:01:25,000
+If the terms change, the brief locks again until he re-accepts.
+
+15
+00:01:25,000 --> 00:01:27,952
+Everything lands in the ledger.
+
+16
+00:01:27,952 --> 00:01:35,571
+Entry twenty-three is Arjun's preprocessing code, written with our coding agent.
+
+17
+00:01:35,571 --> 00:01:43,952
+It shows a seventy percent AI share, owned and approved by Arjun, and reviewed by Kiran.
+
+18
+00:01:43,952 --> 00:01:55,000
+Entries thirty-five and thirty-six flag a similarity match on Meera's upload, and her verified resubmission follows.
+
+19
+00:01:55,000 --> 00:02:00,196
+Anjali accepts the milestone, and the escrow is released.
+
+20
+00:02:00,196 --> 00:02:10,772
+One engine turns the charter and the ledger into payouts: Kiran 25,500, Priya 25,783, Arjun 18,643 and Meera 15,074.
+
+21
+00:02:10,772 --> 00:02:13,415
+That's exactly 85,000 rupees.
+
+22
+00:02:13,415 --> 00:02:18,065
+Arjun's receipt shows every step of the arithmetic.
+
+23
+00:02:18,065 --> 00:02:27,000
+On the knowledge-sharing project, the same flow issues credentials, and no money appears anywhere.
+
+24
+00:02:27,000 --> 00:02:31,004
+Verify the chain, and it is intact.
+
+25
+00:02:31,004 --> 00:02:39,587
+Now we edit entry twenty-three directly in the database, as an admin could.
+
+26
+00:02:39,587 --> 00:02:46,109
+Verify again, and the chain breaks at exactly that entry.
+
+27
+00:02:46,109 --> 00:02:50,000
+History cannot be changed quietly.
+
+28
+00:02:50,000 --> 00:02:56,638
+Contribution, verification, attribution, credit and payment, all with receipts.
+
+29
+00:02:56,638 --> 00:03:00,000
+The Executable Charter, by TeamNoClue.

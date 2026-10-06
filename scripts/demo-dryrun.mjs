@@ -18,7 +18,7 @@ const base = "http://localhost:3000";
 const P1 = "b0000000-0000-4000-8000-000000000001", P2 = "b0000000-0000-4000-8000-000000000002";
 const M1 = "c0000000-0000-4000-8000-000000000001", M2 = "c0000000-0000-4000-8000-000000000002", M3 = "c0000000-0000-4000-8000-000000000003";
 const uid = (n) => `a0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const MEERA = uid(5), DEV = uid(9);
+const MEERA = uid(5), DEV = uid(9), ANANYA = uid(10);
 
 let failures = 0;
 const plain = (html) => html.replace(/<!--.*?-->/g, "").replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/\s+/g, " ");
@@ -68,8 +68,8 @@ function page(label, res, needles) {
 }
 const section = (t) => console.log(`\n== ${t}`);
 
-const [anjali, kiran, priya, arjun, meera, ananya, dev, admin] = await Promise.all(
-  ["anjali", "kiran", "priya", "arjun", "meera", "ananya", "dev", "admin"].map(session),
+const [anjali, kiran, priya, arjun, meera, ananya, admin] = await Promise.all(
+  ["anjali", "kiran", "priya", "arjun", "meera", "ananya", "admin"].map(session),
 );
 
 section("Join: locked brief, accept the charter");
@@ -96,9 +96,10 @@ page("anjali scope page", await anjali.get(`/projects/${P1}/scope`), [
   for (const c of (data?.payload?.candidates ?? []).filter((c) => !c.excludedReason)) console.log(`     ${String(c.score).padStart(3)} ${c.name}: ${c.reason}`);
   for (const c of (data?.payload?.candidates ?? []).filter((c) => c.excludedReason)) console.log(`     --- ${c.name}: ${c.excludedReason}`);
 }
-check("anjali invites dev", await anjali.post(`/api/projects/${P1}/invite`, { userId: DEV, role: "student" }), 200);
-check("dev brief before accepting", await dev.get(`/api/projects/${P1}/brief`), 403);
-check("dev accepts the charter", await dev.post(`/api/projects/${P1}/charter/accept`, { modelAcknowledged: true }), 200);
+check("anjali cannot invite dev (filtered out: too few hours)", await anjali.post(`/api/projects/${P1}/invite`, { userId: DEV, role: "student" }), 409);
+check("anjali invites ananya (shortlisted)", await anjali.post(`/api/projects/${P1}/invite`, { userId: ANANYA, role: "student" }), 200);
+check("ananya P1 brief before accepting", await ananya.get(`/api/projects/${P1}/brief`), 403);
+check("ananya accepts the P1 charter", await ananya.post(`/api/projects/${P1}/charter/accept`, { modelAcknowledged: true }), 200);
 
 section("Fund and work on milestone 2");
 check("anjali funds milestone 2", await anjali.post(`/api/milestones/${M2}/fund`), 200);
@@ -136,7 +137,7 @@ check("kiran rejects the copied file", await kiran.post(`/api/contributions/${co
 if (agentContribution) check("kiran approves priya's agent-assisted note, impact 2", await kiran.post(`/api/contributions/${agentContribution}/review`, { verdict: "approved", impact: 2 }), 200);
 check("arjun cannot submit (not the lead)", await arjun.post(`/api/milestones/${M2}/submit`), 409);
 check("priya submits milestone 2", await priya.post(`/api/milestones/${M2}/submit`), 200);
-page("priya workspace", await priya.get(`/projects/${P1}/workspace`), ["Held: ₹1,60,000", "Flagged: 97% similar", "Approved, impact 4", "80% AI (research agent)", "Dev Patel"]);
+page("priya workspace", await priya.get(`/projects/${P1}/workspace`), ["Held: ₹1,60,000", "Flagged: 97% similar", "Approved, impact 4", "80% AI (research agent)", "Ananya Gupta"]);
 
 section("Accept milestone 1: payouts and receipts");
 page("anjali payouts preview", await anjali.get(`/projects/${P1}/payouts`), ["₹25,500", "₹25,783", "₹18,643", "₹15,074", "Preview"]);
@@ -152,7 +153,7 @@ page("anjali P2 record", await anjali.get(`/projects/${P2}/record`), ["Complete"
 
 section("Verify");
 check("verify the chain", await priya.get("/api/ledger/verify"), 200);
-page("priya ledger", await priya.get(`/projects/${P1}/ledger`), ["Paid ₹25,783 to Priya Nair", "Similarity 97% on copied_cnn_notes.md", "Funded escrow ₹60,000", "research agent", "Approved by owner", "Invited Dev Patel"]);
+page("priya ledger", await priya.get(`/projects/${P1}/ledger`), ["Paid ₹25,783 to Priya Nair", "Similarity 97% on copied_cnn_notes.md", "Funded escrow ₹60,000", "research agent", "Approved by owner", "Invited Ananya Gupta"]);
 
 section("Corner cases from the admin demo controls (on milestone 2)");
 const demo = (body) => admin.post("/api/admin/demo", { projectId: P1, ...body });
@@ -167,7 +168,7 @@ check("anjali cannot accept while disputed", await anjali.post(`/api/milestones/
   check("priya cannot resolve the dispute", await priya.post(`/api/disputes/${data?.id}/resolve`, { inFavourOf: "team", resolution: "I say so." }), 409);
   check("admin resolves for the team", await admin.post(`/api/disputes/${data?.id}/resolve`, { inFavourOf: "team", resolution: "The ledger shows the criterion was reviewed and met." }), 200);
 }
-page("anjali M2 preview before the exit", await anjali.get(`/projects/${P1}/payouts?m=2`), ["Waterfall from ₹60,000", "Dev Patel", "Meera Iyer", "Preview"]);
+page("anjali M2 preview before the exit", await anjali.get(`/projects/${P1}/payouts?m=2`), ["Waterfall from ₹60,000", "Ananya Gupta", "Meera Iyer", "Preview"]);
 check("meera quits at 60%", await demo({ action: "quit", userId: MEERA, percent: 60 }), 200);
 page("anjali M2 preview after the exit", await anjali.get(`/projects/${P1}/payouts?m=2`), ["active 60%", "Unallocated (pro-rata leftovers)"]);
 check("meera's access is revoked", await meera.get(`/api/projects/${P1}/brief`), 403);

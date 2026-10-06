@@ -6,6 +6,7 @@ import { adminDb } from "@/lib/db";
 import { append } from "@/lib/ledger";
 import {
   rankCandidates,
+  scoreCandidate,
   templateReason,
   type Candidate,
   type CandidateProfile,
@@ -30,6 +31,17 @@ export interface MatchRun {
  * The whole result is stored in the MATCH_RUN ledger entry.
  */
 export async function runMatching(projectId: string, ownerId: string): Promise<MatchRun> {
+  const { project, profiles, matchProject, ownerIsAdmin } = await loadMatchInputs(projectId, ownerId);
+  if (project.sponsor_id !== ownerId && !ownerIsAdmin) {
+    throw new MatchingError("Only the sponsor or a platform admin can run matching.");
+  }
+
+  const { shortlisted, excluded } = rankCandidates(profiles, matchProject);
+  return explainAndRecord(projectId, ownerId, project, shortlisted, excluded);
+}
+
+/** Everything the pure rule needs: the project's requirements and every student and expert profile. */
+async function loadMatchInputs(projectId: string, ownerId: string) {
   const db = adminDb();
   const [projectRes, charterRes, ownerRes, peopleRes, membershipsRes] = await Promise.all([
     db
@@ -50,9 +62,6 @@ export async function runMatching(projectId: string, ownerId: string): Promise<M
 
   const project = projectRes.data;
   if (!project) throw new MatchingError("Project not found.");
-  if (project.sponsor_id !== ownerId && ownerRes.data?.role !== "admin") {
-    throw new MatchingError("Only the sponsor or a platform admin can run matching.");
-  }
 
   const memberships = membershipsRes.data ?? [];
   const profiles: CandidateProfile[] = (peopleRes.data ?? []).map((p) => ({
@@ -83,8 +92,17 @@ export async function runMatching(projectId: string, ownerId: string): Promise<M
     topicText: `${project.title}\n${project.public_summary}`,
   };
 
-  const { shortlisted, excluded } = rankCandidates(profiles, matchProject);
+  return { project, profiles, matchProject, ownerIsAdmin: ownerRes.data?.role === "admin" };
+}
 
+/** Asks the LLM for one reason per shortlisted candidate, then stores the whole run in the ledger. */
+async function explainAndRecord(
+  projectId: string,
+  ownerId: string,
+  project: { required_skills: string[]; hours_per_week: number },
+  shortlisted: Candidate[],
+  excluded: Candidate[],
+): Promise<MatchRun> {
   // The LLM sees the score breakdown only: no contact details, no free text from profiles.
   let explainedByLlm = false;
   try {
@@ -143,6 +161,16 @@ export async function runMatching(projectId: string, ownerId: string): Promise<M
 
 /** The sponsor invites a candidate; invite_member writes MEMBER_INVITED. They still have to accept the charter. */
 export async function invite(projectId: string, sponsorId: string, userId: string, role: "student" | "expert") {
+  // The hard filters apply to the invitation too, not only to the list on the page: a sponsor
+  // cannot invite someone with a conflict of interest, or a minor without consent, by other means.
+  const { profiles, matchProject } = await loadMatchInputs(projectId, sponsorId);
+  const profile = profiles.find((p) => p.id === userId);
+  if (!profile) throw new MatchingError("That person is not a registered student or expert.");
+  const candidate = scoreCandidate(profile, matchProject);
+  if (candidate.excludedReason) {
+    throw new MatchingError(`${profile.name} cannot be invited. ${candidate.excludedReason}.`);
+  }
+
   const { data, error } = await adminDb().rpc("invite_member", {
     p_project_id: projectId,
     p_sponsor_id: sponsorId,

@@ -15,7 +15,7 @@ payments, KYC and agreements are synthetic or simulated.
 
 ## Status
 
-Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Phase 7's admin console is built as well: ledger audit, dispute resolution and demo controls for the corner cases (student quits midway, sponsor silent, paid to unpaid, unfair rejection and dispute). All four agents in the table (scoping, matching explainer, research / coding, review) are built. Features are built phase by phase; see `docs/KICKOFF.md`.
+Phases 1 (database, RLS, ledger, seed), 2 (charter engine) and 3 (login, role-aware dashboard, Discovery page with the locked brief and charter accept) are done, as are Phase 4 (workspace: escrow funding, uploads with fingerprint and similarity check, expert reviews, milestone submission) and, from Phase 6, the Ledger page with Verify and the Credit & Payment page with receipts. Phase 5 (Groq gateway, scoping agent, matching with LLM explanations, research / coding agent with draft approval) and the Final Record page are built too. Phase 7's admin console is built as well: ledger audit, dispute resolution and demo controls for the corner cases (student quits midway, sponsor silent, paid to unpaid, unfair rejection and dispute). All four agents in the table (scoping, matching explainer, research / coding, review) are built.
 
 ## Tech stack
 
@@ -119,7 +119,7 @@ Declared as required by the hackathon rules.
 | Tool | Used for |
 |---|---|
 | Claude Code (Anthropic) | Scaffolding, writing and reviewing application code, SQL, tests and docs |
-| Claude (Anthropic, chat/Cowork) | Planning, the project spec (`CLAUDE.md`), the paper PoC and the UI mock-ups in `docs/design/` |
+| Claude (Anthropic, chat/Cowork) | Planning, the project spec, the paper PoC and the UI mock-ups in `docs/design/` |
 | Groq-hosted open-weight model (`openai/gpt-oss-120b`, set in `GROQ_MODEL`) | Runtime LLM inside the product (scoping, matching explanations, research/coding and review agents) |
 
 <!-- Add any other AI tool a team member uses, before the final submission. -->

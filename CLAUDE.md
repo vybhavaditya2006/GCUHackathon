@@ -63,7 +63,8 @@ Tables: `profiles` (role: student|expert|sponsor|admin, verified, skills[], hour
 `charters` (project_id, version, model: funded|stipend|knowledge_sharing|institutional_credit, terms jsonb),
 `memberships` (project_id, user_id, role, status: invited|active|inactive|exited, charter_version accepted, model_acknowledged, active_fraction),
 `milestones` (title, required_skills[], acceptance_criteria, amount, status: draft|funded|submitted|accepted|rejected|disputed),
-`contributions` (author_id = human owner, agent_used, ai_share 0..1, artefact_hash, similarity, ai_declaration),
+`contributions` (author_id = human owner, agent_used, ai_share 0..1, artefact_hash, similarity, ai_declaration, version, builds_on),
+`tasks` (milestone_id, title, owner_id, status: todo|in_review|done, contribution_id; added in `005_tasks_versions.sql`),
 `reviews` (verdict, impact 0..10), `escrows` (amount, status: funded|released|frozen|refunded),
 `payouts` (user_id, amount, receipt jsonb, charter_version), `disputes`, `agent_drafts`, and **`ledger`**.
 

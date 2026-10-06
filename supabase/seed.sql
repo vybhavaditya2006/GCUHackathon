@@ -3,7 +3,7 @@
 -- ALL people, organisations, projects and payments here are made up.
 -- Every seeded user signs in with the password: demo1234
 --
--- Run in the Supabase SQL editor AFTER 001_schema.sql. Safe to re-run: it wipes
+-- Run in the Supabase SQL editor AFTER the migrations (001 to 005). Safe to re-run: it wipes
 -- the app tables, the ledger and the seeded auth users, then rebuilds them.
 --
 -- State after seeding
@@ -29,7 +29,7 @@ begin;
 -- ---- wipe ------------------------------------------------------------------
 alter table public.ledger disable trigger ledger_no_truncate;
 truncate table
-  public.ledger, public.agent_drafts, public.disputes, public.payouts, public.escrows, public.reviews,
+  public.tasks, public.ledger, public.agent_drafts, public.disputes, public.payouts, public.escrows, public.reviews,
   public.contributions, public.milestones, public.memberships, public.charters, public.project_briefs,
   public.projects, public.profiles
   cascade;
@@ -225,6 +225,39 @@ values
    'a0000000-0000-4000-8000-000000000009', 'Low-cost device survey (8 papers)', null, 0,
    'device_survey.md', seed_tmp.fp('device_survey.md'), 0.070, false, 'No AI used.', seed_tmp.at(14, '12:15'));
 
+-- Meera's training run is version 2: it replaces her flagged notes (version 1), which stay on record.
+update public.contributions
+   set version = 2, builds_on = 'd0000000-0000-4000-8000-000000000004'
+ where id = 'd0000000-0000-4000-8000-000000000005';
+
+-- How each milestone was split into tasks, who owns each, and the contribution that closed it.
+insert into public.tasks (project_id, milestone_id, title, owner_id, status, contribution_id, created_at) values
+  -- Project 1, Milestone 1 (submitted)
+  ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'Survey prior work on DR screening models',
+   'a0000000-0000-4000-8000-000000000003', 'done', 'd0000000-0000-4000-8000-000000000001', seed_tmp.at(2, '10:00')),
+  ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'Clean and split the 2,000 images',
+   'a0000000-0000-4000-8000-000000000003', 'done', 'd0000000-0000-4000-8000-000000000002', seed_tmp.at(2, '10:01')),
+  ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'Build the preprocessing pipeline',
+   'a0000000-0000-4000-8000-000000000004', 'done', 'd0000000-0000-4000-8000-000000000003', seed_tmp.at(2, '10:02')),
+  ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'Train and document the baseline CNN',
+   'a0000000-0000-4000-8000-000000000005', 'done', 'd0000000-0000-4000-8000-000000000005', seed_tmp.at(2, '10:03')),
+  ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'Package Milestone 1 for the sponsor',
+   'a0000000-0000-4000-8000-000000000003', 'in_review', null, seed_tmp.at(2, '10:04')),
+  -- Project 1, Milestone 2 (not funded yet)
+  ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002', 'Quantise the model to under 10 MB',
+   'a0000000-0000-4000-8000-000000000005', 'todo', null, seed_tmp.at(21, '11:00')),
+  ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002', 'Benchmark inference time on the Kestrel-2 board',
+   'a0000000-0000-4000-8000-000000000004', 'todo', null, seed_tmp.at(21, '11:01')),
+  ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002', 'Write the edge deployment guide',
+   'a0000000-0000-4000-8000-000000000003', 'todo', null, seed_tmp.at(21, '11:02')),
+  -- Project 2, Milestone 1 (submitted)
+  ('b0000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000003', 'Extract screening accuracy from 12 papers',
+   'a0000000-0000-4000-8000-000000000008', 'done', 'd0000000-0000-4000-8000-000000000006', seed_tmp.at(10, '09:00')),
+  ('b0000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000003', 'Survey low-cost devices in 8 papers',
+   'a0000000-0000-4000-8000-000000000009', 'done', 'd0000000-0000-4000-8000-000000000007', seed_tmp.at(10, '09:01')),
+  ('b0000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000003', 'Write the short summary of the review',
+   'a0000000-0000-4000-8000-000000000008', 'in_review', null, seed_tmp.at(10, '09:02'));
+
 insert into public.reviews (id, contribution_id, reviewer_id, verdict, impact, notes, created_at) values
   ('f0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002',
    'approved', 1, 'Useful map of prior work; mostly agent-drafted, lightly edited.', seed_tmp.at(4, '10:30')),
@@ -335,7 +368,8 @@ insert into seed_tmp.events (ts, project_id, actor, on_behalf_of, event, payload
   (seed_tmp.at(11, '09:25'), 'b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000005', null, 'CONTRIBUTION_ADDED',
    jsonb_build_object('contribution_id', 'd0000000-0000-4000-8000-000000000005', 'milestone_id', 'c0000000-0000-4000-8000-000000000001',
      'title', 'Resubmitted original work + training run', 'artefact', 'train_v2.ipynb', 'artefact_hash', seed_tmp.fp('train_v2.ipynb'),
-     'agent_used', null, 'ai_share', 0, 'ai_declaration', 'No AI used.')),
+     'agent_used', null, 'ai_share', 0, 'ai_declaration', 'No AI used.',
+     'version', 2, 'builds_on', 'd0000000-0000-4000-8000-000000000004', 'builds_on_title', 'Baseline CNN notes', 'builds_on_version', 1)),
   (seed_tmp.at(12, '09:50'), 'b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002', null, 'REVIEW_DONE',
    '{"review_id":"f0000000-0000-4000-8000-000000000004","contribution_id":"d0000000-0000-4000-8000-000000000005","author_id":"a0000000-0000-4000-8000-000000000005","verdict":"approved","impact":2}'),
   (seed_tmp.at(15, '17:45'), 'b0000000-0000-4000-8000-000000000001', 'agent:review', 'a0000000-0000-4000-8000-000000000002', 'AGENT_ACTION',

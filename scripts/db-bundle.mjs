@@ -7,6 +7,7 @@ const files = [
   "supabase/migrations/002_work_functions.sql",
   "supabase/migrations/003_agent_functions.sql",
   "supabase/migrations/004_corner_cases.sql",
+  "supabase/migrations/005_tasks_versions.sql",
   "supabase/seed.sql",
 ];
 

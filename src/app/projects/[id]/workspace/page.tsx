@@ -4,12 +4,14 @@ import { JudgeNote } from "@/components/JudgeNote";
 import { Pill, type PillTone } from "@/components/Pill";
 import { PostButton } from "@/components/PostButton";
 import { ReviewForm } from "@/components/ReviewForm";
+import { TaskBoard, type TaskCard } from "@/components/TaskBoard";
 import { UploadContributionForm } from "@/components/UploadContributionForm";
 import { isPaidModel } from "@/lib/access";
 import { userDb } from "@/lib/db";
 import { formatRupees } from "@/lib/engine/computeSplit";
 import { formatDate } from "@/lib/format";
 import { SIMILARITY_THRESHOLD } from "@/lib/integrity";
+import { versionLabel } from "@/lib/ledgerView";
 import { getProjectView } from "@/lib/projects";
 
 interface TeamRow {
@@ -32,7 +34,18 @@ interface ContributionRow {
   similarity: number;
   flagged: boolean;
   ai_declaration: string;
+  version: number;
+  builds_on: string | null;
   reviews: { verdict: string; impact: number; notes: string }[];
+}
+
+interface TaskRow {
+  id: string;
+  milestone_id: string;
+  title: string;
+  owner_id: string;
+  status: TaskCard["status"];
+  contribution_id: string | null;
 }
 
 const statusTone: Record<string, PillTone> = {
@@ -88,25 +101,27 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
 
   // All reads use the user's own session, so RLS decides what comes back.
   const db = await userDb();
-  const [teamRes, escrowRes, contributionsRes] = await Promise.all([
+  const [teamRes, escrowRes, contributionsRes, tasksRes] = await Promise.all([
     db.from("memberships").select("user_id, role, status, is_lead, active_fraction").eq("project_id", id).order("invited_at"),
     db.from("escrows").select("milestone_id, amount, status, reference").eq("project_id", id),
     db
       .from("contributions")
       .select(
-        "id, milestone_id, author_id, title, agent_used, ai_share, artefact_name, artefact_hash, similarity, flagged, ai_declaration, reviews(verdict, impact, notes)",
+        "id, milestone_id, author_id, title, agent_used, ai_share, artefact_name, artefact_hash, similarity, flagged, ai_declaration, version, builds_on, reviews(verdict, impact, notes)",
       )
       .eq("project_id", id)
       .order("created_at"),
+    db.from("tasks").select("id, milestone_id, title, owner_id, status, contribution_id").eq("project_id", id).order("created_at"),
   ]);
   const team = (teamRes.data ?? []) as TeamRow[];
   const escrows = escrowRes.data ?? [];
   const contributions = (contributionsRes.data ?? []) as ContributionRow[];
+  const tasks = (tasksRes.data ?? []) as TaskRow[];
 
   const { data: profiles } = await db
     .from("profiles")
     .select("id, full_name")
-    .in("id", [...new Set([...team.map((t) => t.user_id), ...contributions.map((c) => c.author_id)])]);
+    .in("id", [...new Set([...team.map((t) => t.user_id), ...contributions.map((c) => c.author_id), ...tasks.map((t) => t.owner_id)])]);
   const nameOf = (uid: string) => profiles?.find((p) => p.id === uid)?.full_name ?? "someone";
   const ownerName = (role: string) => {
     const person = team.find((t) => t.role === role && t.status === "active");
@@ -174,6 +189,21 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
         ...c,
         met: c.met === true ? "yes" : c.met === false ? "no" : c.met,
       })),
+    };
+  });
+
+  const taskCards: TaskCard[] = tasks.map((t) => {
+    const work = contributions.find((c) => c.id === t.contribution_id);
+    const m = milestones.find((x) => x.id === t.milestone_id);
+    return {
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      ownerName: nameOf(t.owner_id),
+      milestoneLabel: m ? `Milestone ${m.position}` : "Milestone",
+      work: work
+        ? { artefact: work.artefact_name, version: work.version, agent: work.agent_used, aiShare: Number(work.ai_share) }
+        : null,
     };
   });
 
@@ -298,6 +328,20 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
 
       <section className="rounded-lg border border-border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Task board</h2>
+          <Pill>How the work is split: one human owner per task</Pill>
+        </div>
+        <div className="mt-3">
+          <TaskBoard tasks={taskCards} />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          A task is closed by a contribution. If an agent drafted it, the chip says so; the task and the credit still
+          belong to its human owner.
+        </p>
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">Documents</h2>
           <Pill>Team only: sponsor and active members</Pill>
         </div>
@@ -305,6 +349,7 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
           {contributions.map((c) => {
             const review = c.reviews[0];
             const milestone = milestones.find((m) => m.id === c.milestone_id);
+            const parent = contributions.find((p) => p.id === c.builds_on);
             return (
               <li key={c.id} className="flex flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -312,6 +357,7 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
                   <span className="font-mono text-xs text-muted-foreground" title={c.artefact_hash}>
                     {c.artefact_name} · sha256 {c.artefact_hash.slice(0, 8)}…
                   </span>
+                  {parent && <Pill>{versionLabel(c.version, parent.title, parent.version)}</Pill>}
                   {Number(c.ai_share) > 0 && (
                     <Pill tone="ai">
                       {Math.round(Number(c.ai_share) * 100)}% AI ({c.agent_used} agent)
@@ -355,6 +401,10 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
             <div className="mt-3">
               <UploadContributionForm
                 milestones={openMilestones.map((m) => ({ id: m.id, label: `${m.position}. ${m.title}` }))}
+                earlier={contributions.map((c) => ({
+                  id: c.id,
+                  label: `${c.title} (v${c.version}, ${nameOf(c.author_id)})`,
+                }))}
               />
             </div>
           ) : (

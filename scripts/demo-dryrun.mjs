@@ -109,6 +109,11 @@ const clean = check("meera uploads original work", await meera.upload(`/api/mile
 form = file("copied_cnn_notes.md"); form.set("title", "Baseline CNN notes"); form.set("aiDeclaration", "No AI used.");
 const copied = check("arjun uploads a copied file", await arjun.upload(`/api/milestones/${M2}/contributions`, form), 200);
 if (clean.json?.flagged !== false || copied.json?.flagged !== true) { failures++; console.log("FAIL similarity flags are not clean=false / copied=true"); }
+form = file("quantisation_notes.md"); form.set("title", "Quantisation notes, revised"); form.set("aiDeclaration", "No AI used."); form.set("buildsOn", clean.json?.contributionId ?? "");
+const revised = check("meera uploads version 2 of her notes", await meera.upload(`/api/milestones/${M2}/contributions`, form), 200);
+if (revised.json?.version !== 2) { failures++; console.log("FAIL the revised upload is not version 2"); }
+form = file("quantisation_notes.md"); form.set("title", "Bad parent"); form.set("aiDeclaration", "No AI used."); form.set("buildsOn", "d0000000-0000-4000-8000-000000000006");
+check("meera cannot build on another project's work", await meera.upload(`/api/milestones/${M2}/contributions`, form), 409);
 
 const agentRun = check("priya runs the research agent", await priya.post(`/api/milestones/${M2}/agent`, {
   agent: "research", request: "Outline the steps to quantise our screening model to under 10 MB for the edge board.", notes: "We use TensorFlow Lite. Baseline model is 94 MB.",
@@ -137,7 +142,8 @@ check("kiran rejects the copied file", await kiran.post(`/api/contributions/${co
 if (agentContribution) check("kiran approves priya's agent-assisted note, impact 2", await kiran.post(`/api/contributions/${agentContribution}/review`, { verdict: "approved", impact: 2 }), 200);
 check("arjun cannot submit (not the lead)", await arjun.post(`/api/milestones/${M2}/submit`), 409);
 check("priya submits milestone 2", await priya.post(`/api/milestones/${M2}/submit`), 200);
-page("priya workspace", await priya.get(`/projects/${P1}/workspace`), ["Held: ₹1,60,000", "Flagged: 97% similar", "Approved, impact 4", "80% AI (research agent)", "Ananya Gupta"]);
+page("priya workspace", await priya.get(`/projects/${P1}/workspace`), ["Held: ₹1,60,000", "Flagged: 97% similar", "Approved, impact 4", "80% AI (research agent)", "Ananya Gupta",
+  "Task board", "Quantise the model to under 10 MB", "v2 · replaces Baseline CNN notes (v1)", "v2 · replaces Quantisation notes (v1)"]);
 
 section("Accept milestone 1: payouts and receipts");
 page("anjali payouts preview", await anjali.get(`/projects/${P1}/payouts`), ["₹25,500", "₹25,783", "₹18,643", "₹15,074", "Preview"]);
@@ -153,7 +159,8 @@ page("anjali P2 record", await anjali.get(`/projects/${P2}/record`), ["Complete"
 
 section("Verify");
 check("verify the chain", await priya.get("/api/ledger/verify"), 200);
-page("priya ledger", await priya.get(`/projects/${P1}/ledger`), ["Paid ₹25,783 to Priya Nair", "Similarity 97% on copied_cnn_notes.md", "Funded escrow ₹60,000", "research agent", "Approved by owner", "Invited Ananya Gupta"]);
+page("priya ledger", await priya.get(`/projects/${P1}/ledger`), ["Paid ₹25,783 to Priya Nair", "Similarity 97% on copied_cnn_notes.md", "Funded escrow ₹60,000", "research agent", "Approved by owner", "Invited Ananya Gupta",
+  "v2 · replaces Baseline CNN notes (v1)", "Quantisation notes, revised · v2 · replaces Quantisation notes (v1)"]);
 
 section("Corner cases from the admin demo controls (on milestone 2)");
 const demo = (body) => admin.post("/api/admin/demo", { projectId: P1, ...body });

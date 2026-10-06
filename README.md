@@ -64,9 +64,10 @@ In the Supabase dashboard, open **SQL Editor**. For each file, paste the whole f
 2. `supabase/migrations/002_work_functions.sql`: review and milestone-submission functions.
 3. `supabase/migrations/003_agent_functions.sql`: agent drafts, scoping approval and invitations.
 4. `supabase/migrations/004_corner_cases.sql`: member exit, charter change, rejection, disputes.
+5. `supabase/migrations/005_tasks_versions.sql`: the `tasks` table (how work is split) and contribution versions (`version`, `builds_on`).
 5. `supabase/seed.sql`: synthetic demo data. The result row should show `chain_ok = true` and 46 ledger entries.
 
-Shortcut once `001_schema.sql` is in place: `npm run db:bundle` writes `supabase/paste_me.sql` (migrations 002 to 004 plus the seed) so an update is one paste.
+Shortcut once `001_schema.sql` is in place: `npm run db:bundle` writes `supabase/paste_me.sql` (migrations 002 to 005 plus the seed) so an update is one paste.
 
 `npm run demo:dryrun` rehearses the whole demo over HTTP against the running dev server and the real Supabase project (about 60 checks, four real LLM calls). It needs a freshly seeded database and changes demo state, so paste `supabase/paste_me.sql` again afterwards. The SQL editor may show `schema "seed_tmp" does not exist` after running the seed even though it succeeded; check the app or the ledger count (46) rather than that message.
 
@@ -141,6 +142,8 @@ Every mock is listed here with what production would use.
 | Artefact fingerprints in the seed are hashes of a file name, not of a file | SHA-256 of the uploaded file in private storage |
 | Track record (`proven_skills`, `completed_projects`) is stored on the profile | Derived from reviewed ledger entries |
 | Credentials are `CREDENTIAL_ISSUED` ledger entries only | Signed, independently verifiable credentials |
+| The task board is read-only seeded data: tasks cannot be created, reassigned or moved in the app | Leads create and assign tasks; a task moves to "in review" / "done" from its contribution and review, each change a ledger entry |
+| A new version records which contribution it builds on (`version`, `builds_on`); the files themselves are not diffed or merged | Stored file versions with diffs, and merge history from the team's repository |
 | Tamper evidence relies on one hash chain held by the platform | Periodically anchor the latest hash somewhere public |
 
 <!-- Add a row whenever something is mocked (payments/escrow, KYC, similarity check, ...). -->

@@ -21,10 +21,13 @@ export interface NewContribution {
   fileName: string;
   bytes: Uint8Array;
   aiDeclaration: string;
+  /** The earlier contribution this one builds on or replaces; the new version is that one's + 1. */
+  buildsOn?: string | null;
 }
 
 export interface ContributionResult {
   contributionId: string;
+  version: number;
   artefactHash: string;
   similarity: number;
   matched: string | null;
@@ -37,7 +40,7 @@ export async function addContribution(input: NewContribution): Promise<Contribut
   const artefactHash = sha256Hex(input.bytes);
   const check = similarity(new TextDecoder().decode(input.bytes));
 
-  const result = await call<{ contribution_id: string; flagged: boolean; seq: number }>("add_contribution", {
+  const result = await call<{ contribution_id: string; flagged: boolean; version: number; seq: number }>("add_contribution", {
     p_milestone_id: input.milestoneId,
     p_author_id: input.authorId,
     p_title: input.title,
@@ -47,10 +50,12 @@ export async function addContribution(input: NewContribution): Promise<Contribut
     p_agent_used: null,
     p_ai_share: 0,
     p_similarity: check.score,
+    p_builds_on: input.buildsOn ?? null,
   });
 
   return {
     contributionId: result.contribution_id,
+    version: result.version,
     artefactHash,
     similarity: check.score,
     matched: check.matched,

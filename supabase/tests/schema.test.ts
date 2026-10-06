@@ -44,6 +44,7 @@ beforeAll(async () => {
   await db.exec(read("../migrations/002_work_functions.sql"));
   await db.exec(read("../migrations/003_agent_functions.sql"));
   await db.exec(read("../migrations/004_corner_cases.sql"));
+  await db.exec(read("../migrations/005_tasks_versions.sql"));
   await db.exec(read("../seed.sql"));
 }, 120_000);
 
@@ -82,9 +83,34 @@ describe("seed", () => {
     expect(unlinked.n).toBe(0);
   });
 
+  it("splits the milestones into owned tasks, closed by contributions", async () => {
+    const { rows } = await db.query<{ status: string; n: number }>(
+      "select status, count(*)::int as n from tasks where project_id = $1 group by status", [P1]);
+    expect(Object.fromEntries(rows.map((r) => [r.status, r.n]))).toEqual({ todo: 3, in_review: 1, done: 4 });
+    const stray = await one<{ n: number }>(
+      `select count(*)::int as n from tasks t left join contributions c on c.id = t.contribution_id
+        where (t.status = 'done') <> (c.id is not null) or c.author_id <> t.owner_id or c.milestone_id <> t.milestone_id`,
+    );
+    expect(stray.n).toBe(0); // done means a contribution by the task's owner on the same milestone
+  });
+
+  it("records Meera's training run as v2 replacing her flagged notes, in the table and the ledger", async () => {
+    const row = await one<{ version: number; parent: string; parent_version: number; payload: Record<string, unknown> }>(
+      `select c.version, p.artefact_name as parent, p.version as parent_version, l.payload
+         from contributions c join contributions p on p.id = c.builds_on join ledger l on l.seq = c.ledger_seq
+        where c.artefact_name = 'train_v2.ipynb'`,
+    );
+    expect(row).toMatchObject({ version: 2, parent: "cnn_notes.md", parent_version: 1 });
+    expect(row.payload).toMatchObject({ version: 2, builds_on_title: "Baseline CNN notes", builds_on_version: 1 });
+    const others = await one<{ n: number }>("select count(*)::int as n from contributions where version <> 1 or builds_on is not null");
+    expect(others.n).toBe(1);
+  });
+
   it("can be re-run without duplicating anything", async () => {
+    await db.exec(read("../migrations/005_tasks_versions.sql"));
     await db.exec(read("../seed.sql"));
     expect(await verify()).toMatchObject({ ok: true, checked: 46 });
+    expect((await one<{ n: number }>("select count(*)::int as n from tasks")).n).toBe(11);
   });
 });
 
@@ -158,6 +184,23 @@ describe("row-level security", () => {
     ).rejects.toThrow(/permission denied/);
   });
 
+  it("scopes tasks to the project team and admins, read-only", async () => {
+    const projects = async (uid: string) =>
+      (await asUser<{ project_id: string }>(uid, "select distinct project_id from tasks order by 1")).map((r) => r.project_id);
+    expect(await projects(ROHAN)).toEqual([]); // not a member
+    expect(await projects(PRIYA)).toEqual([P1]);
+    expect(await projects(SANA)).toEqual([P2]);
+    expect(await projects(ANANYA)).toEqual([]); // invited, not accepted
+    expect(await projects(ADMIN)).toEqual([P1, P2]);
+    await expect(asUser(PRIYA, "update tasks set status = 'done'")).rejects.toThrow(/permission denied/);
+    await expect(
+      asUser(PRIYA, "insert into tasks (project_id, milestone_id, title, owner_id) values ($1, $2, 'x', $3)", [P1, M2, PRIYA]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      asUser(MEERA, "select add_contribution($1, $2, 't', 'f', $3, '', null, 0, 0, null)", [M2, MEERA, SHA]),
+    ).rejects.toThrow(/permission denied/);
+  });
+
   it("lets any signed-in user run verify", async () => {
     const rows = await asUser<{ ok: boolean }>(ROHAN, "select ok from ledger_verify()");
     expect(rows[0].ok).toBe(true);
@@ -226,6 +269,41 @@ describe("state-changing functions (each writes its ledger entry)", () => {
     const flag = await one<{ event: string; actor: string; on_behalf_of: string }>(
       "select event, actor, on_behalf_of from ledger where seq = $1", [copied.r.flag_seq]);
     expect(flag).toEqual({ event: "SIMILARITY_FLAGGED", actor: "agent:integrity", on_behalf_of: MEERA });
+  });
+
+  it("add_contribution: a new version builds on an earlier contribution and the ledger links them", async () => {
+    const parent = await one<{ id: string }>(
+      "select id from contributions where milestone_id = $1 and not flagged order by created_at limit 1", [M2]);
+    const add = (buildsOn: string | null, author = ARJUN) =>
+      one<{ r: { contribution_id: string; version: number; seq: number } }>(
+        "select add_contribution($1, $2, 'Quantised model, smaller', 'model_v2.tflite', $3, 'No AI used.', null, 0, 0, $4) as r",
+        [M2, author, SHA, buildsOn],
+      );
+
+    // Anyone on the team can build on a teammate's work: that is how pieces are combined.
+    const v2 = await add(parent.id);
+    expect(v2.r.version).toBe(2);
+    const v3 = await add(v2.r.contribution_id, MEERA);
+    expect(v3.r.version).toBe(3);
+
+    const entry = await one<{ payload: Record<string, unknown> }>("select payload from ledger where seq = $1", [v3.r.seq]);
+    expect(entry.payload).toMatchObject({
+      version: 3, builds_on: v2.r.contribution_id, builds_on_title: "Quantised model, smaller", builds_on_version: 2,
+    });
+    // The earlier versions are still there, untouched.
+    const kept = await one<{ versions: number[] }>(
+      `select array_agg(version order by version) as versions from contributions
+        where id in ($1, $2, $3)`, [parent.id, v2.r.contribution_id, v3.r.contribution_id]);
+    expect(kept.versions).toEqual([1, 2, 3]);
+
+    const elsewhere = await one<{ id: string }>("select id from contributions where project_id = $1 limit 1", [P2]);
+    await expect(add(elsewhere.id)).rejects.toThrow(/not in this project/);
+    await expect(add("d0000000-0000-4000-8000-00000000ffff")).rejects.toThrow(/not in this project/);
+
+    const fresh = await one<{ payload: Record<string, unknown> }>(
+      "select payload from ledger where seq = $1", [(await add(null)).r.seq]);
+    expect(fresh.payload).toMatchObject({ version: 1 });
+    expect(fresh.payload).not.toHaveProperty("builds_on");
   });
 
   it("agent drafts: need a human owner on the team, and only approval makes a contribution", async () => {
@@ -463,6 +541,7 @@ describe("reset.sql", () => {
     await db.exec(read("../migrations/002_work_functions.sql"));
     await db.exec(read("../migrations/003_agent_functions.sql"));
     await db.exec(read("../migrations/004_corner_cases.sql"));
+    await db.exec(read("../migrations/005_tasks_versions.sql"));
     await db.exec(read("../seed.sql"));
     expect(await verify()).toMatchObject({ ok: true, checked: 46 });
   });

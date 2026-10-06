@@ -8,10 +8,18 @@ interface UploadResult {
   similarity: number;
   matched: string | null;
   flagged: boolean;
+  version: number;
   seq: number;
 }
 
-export function UploadContributionForm({ milestones }: { milestones: { id: string; label: string }[] }) {
+export function UploadContributionForm({
+  milestones,
+  earlier,
+}: {
+  milestones: { id: string; label: string }[];
+  /** Contributions already on the project that a new one can build on or replace. */
+  earlier: { id: string; label: string }[];
+}) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [milestoneId, setMilestoneId] = useState(milestones[0]?.id ?? "");
@@ -79,6 +87,20 @@ export function UploadContributionForm({ milestones }: { milestones: { id: strin
           placeholder="e.g. No AI used. / Outline drafted with an AI tool, text is mine."
         />
       </label>
+      <label className="flex flex-col gap-1 font-medium">
+        Builds on / replaces (optional)
+        <select name="buildsOn" defaultValue="" className={input}>
+          <option value="">Nothing: this is new work (version 1)</option>
+          {earlier.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs font-normal text-muted-foreground">
+          The earlier version stays on record; this one becomes the next version and the ledger links the two.
+        </span>
+      </label>
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
@@ -95,7 +117,7 @@ export function UploadContributionForm({ milestones }: { milestones: { id: strin
         <p role="status" className={result.flagged ? "text-alert" : "text-verified"}>
           {result.flagged
             ? `Recorded as ledger entry #${result.seq}, and flagged: ${Math.round(result.similarity * 100)}% similar to ${result.matched}. An expert will look at it.`
-            : `Recorded as ledger entry #${result.seq}. Similarity ${Math.round(result.similarity * 100)}%, fingerprint ${result.artefactHash.slice(0, 12)}.`}
+            : `Recorded as ledger entry #${result.seq}${result.version > 1 ? ` (version ${result.version})` : ""}. Similarity ${Math.round(result.similarity * 100)}%, fingerprint ${result.artefactHash.slice(0, 12)}.`}
         </p>
       )}
       {error && (

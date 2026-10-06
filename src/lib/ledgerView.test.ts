@@ -62,6 +62,21 @@ describe("toLedgerRows", () => {
     expect(rows[3].verification.tone).toBe("alert");
   });
 
+  it("says which earlier contribution a new version replaces", () => {
+    const [v2, v1] = toLedgerRows(
+      [
+        entry({
+          event: "CONTRIBUTION_ADDED",
+          payload: { contribution_id: "c5", title: "Training run", version: 2, builds_on: "c4", builds_on_title: "Baseline CNN notes", builds_on_version: 1 },
+        }),
+        entry({ event: "CONTRIBUTION_ADDED", payload: { contribution_id: "c6", title: "New work", version: 1 } }),
+      ],
+      names,
+    );
+    expect(v2.action).toBe("Training run · v2 · replaces Baseline CNN notes (v1)");
+    expect(v1.action).toBe("New work");
+  });
+
   it("describes money in rupees and tags it for the money filter", () => {
     expect(rows[8].action).toBe("Paid ₹25,783 to Priya Nair");
     expect(rows[8].category).toBe("money");

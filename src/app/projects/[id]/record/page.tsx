@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { JudgeNote } from "@/components/JudgeNote";
 import { Pill, type PillTone } from "@/components/Pill";
 import { isPaidModel, MODEL_LABELS } from "@/lib/access";
+import { storedArtefacts } from "@/lib/artefacts";
 import { userDb } from "@/lib/db";
 import { formatRupees } from "@/lib/engine/computeSplit";
 import { formatDate } from "@/lib/format";
@@ -11,6 +12,13 @@ import { toLedgerRows, type LedgerEntry } from "@/lib/ledgerView";
 import { getProjectView, isUuid } from "@/lib/projects";
 
 interface ContributionRow {
+  id: string;
+  milestone_id: string;
+  title: string;
+  artefact_name: string;
+  artefact_hash: string;
+  version: number;
+  builds_on: string | null;
   author_id: string;
   ai_share: number;
   flagged: boolean;
@@ -59,11 +67,16 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
 
   // Read with the user's own session, so RLS decides what comes back.
   const db = await userDb();
-  const [contributionsRes, ledgerRes, escrowRes, chain] = await Promise.all([
-    db.from("contributions").select("author_id, ai_share, flagged, reviews(verdict, impact)").eq("project_id", id),
+  const [contributionsRes, ledgerRes, escrowRes, chain, stored] = await Promise.all([
+    db
+      .from("contributions")
+      .select("id, milestone_id, title, artefact_name, artefact_hash, version, builds_on, author_id, ai_share, flagged, reviews(verdict, impact)")
+      .eq("project_id", id)
+      .order("created_at"),
     db.from("ledger").select("seq, ts, actor, on_behalf_of, event, payload, hash").eq("project_id", id).order("seq"),
     db.from("escrows").select("amount, status, reference").eq("project_id", id),
     verify(),
+    storedArtefacts(id),
   ]);
   const contributions = (contributionsRes.data ?? []) as ContributionRow[];
   const ledger = (ledgerRes.data ?? []) as LedgerEntry[];
@@ -105,6 +118,12 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
     })
     .sort((a, b) => b.impact - a.impact);
   const totalImpact = people.reduce((sum, p) => sum + p.impact, 0);
+
+  // What the sponsor receives: approved work, latest version only (earlier versions stay in the workspace).
+  const superseded = new Set(contributions.map((c) => c.builds_on).filter(Boolean));
+  const deliverables = contributions.filter(
+    (c) => !superseded.has(c.id) && c.reviews.some((r) => r.verdict === "approved"),
+  );
 
   const paid = charter ? isPaidModel(charter.model) : false;
   const accepted = milestones.filter((m) => m.status === "accepted");
@@ -185,6 +204,44 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
           </p>
         </section>
       </div>
+
+      <section className={card}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Deliverables</h2>
+          <Pill>Team only: sponsor and active members</Pill>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          The approved work, latest version of each piece. Every download is re-checked against the fingerprint the
+          ledger recorded when it was uploaded.
+        </p>
+        <ul className="mt-3 flex flex-col divide-y divide-border text-sm">
+          {deliverables.map((c) => {
+            const milestone = milestones.find((m) => m.id === c.milestone_id);
+            return (
+              <li key={c.id} className="flex flex-wrap items-center gap-2 py-2.5 first:pt-0 last:pb-0">
+                <span className="font-medium">{c.title}</span>
+                <span className="font-mono text-xs text-muted-foreground" title={c.artefact_hash}>
+                  {c.artefact_name} · v{c.version} · sha256 {c.artefact_hash.slice(0, 8)}…
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {nameOf(c.author_id)} · Milestone {milestone?.position}
+                </span>
+                {stored.has(c.artefact_hash) ? (
+                  <a
+                    href={`/api/contributions/${c.id}/file`}
+                    className="text-xs font-medium text-accent underline-offset-4 hover:underline"
+                  >
+                    Download
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted-foreground">(record only, no file stored)</span>
+                )}
+              </li>
+            );
+          })}
+          {deliverables.length === 0 && <li className="text-muted-foreground">No approved work yet.</li>}
+        </ul>
+      </section>
 
       <section className={card}>
         <h2 className="text-sm font-semibold">Contribution breakdown</h2>

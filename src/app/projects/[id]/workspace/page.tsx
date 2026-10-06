@@ -7,6 +7,7 @@ import { ReviewForm } from "@/components/ReviewForm";
 import { TaskBoard, type TaskCard } from "@/components/TaskBoard";
 import { UploadContributionForm } from "@/components/UploadContributionForm";
 import { isPaidModel } from "@/lib/access";
+import { storedArtefacts } from "@/lib/artefacts";
 import { userDb } from "@/lib/db";
 import { formatRupees } from "@/lib/engine/computeSplit";
 import { formatDate } from "@/lib/format";
@@ -101,7 +102,7 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
 
   // All reads use the user's own session, so RLS decides what comes back.
   const db = await userDb();
-  const [teamRes, escrowRes, contributionsRes, tasksRes] = await Promise.all([
+  const [teamRes, escrowRes, contributionsRes, tasksRes, stored] = await Promise.all([
     db.from("memberships").select("user_id, role, status, is_lead, active_fraction").eq("project_id", id).order("invited_at"),
     db.from("escrows").select("milestone_id, amount, status, reference").eq("project_id", id),
     db
@@ -112,6 +113,7 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
       .eq("project_id", id)
       .order("created_at"),
     db.from("tasks").select("id, milestone_id, title, owner_id, status, contribution_id").eq("project_id", id).order("created_at"),
+    storedArtefacts(id),
   ]);
   const team = (teamRes.data ?? []) as TeamRow[];
   const escrows = escrowRes.data ?? [];
@@ -357,6 +359,16 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
                   <span className="font-mono text-xs text-muted-foreground" title={c.artefact_hash}>
                     {c.artefact_name} · sha256 {c.artefact_hash.slice(0, 8)}…
                   </span>
+                  {stored.has(c.artefact_hash) ? (
+                    <a
+                      href={`/api/contributions/${c.id}/file`}
+                      className="text-xs font-medium text-accent underline-offset-4 hover:underline"
+                    >
+                      Open file
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">(record only, no file stored)</span>
+                  )}
                   {parent && <Pill>{versionLabel(c.version, parent.title, parent.version)}</Pill>}
                   {Number(c.ai_share) > 0 && (
                     <Pill tone="ai">

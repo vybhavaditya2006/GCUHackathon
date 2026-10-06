@@ -193,7 +193,7 @@ real user's action would, is recorded under the person who would really act, and
 | Escrow and payments | A licensed escrow / payment partner |
 | KYC / identity | A government-ID verification service |
 | Similarity check against one built-in text | A real plagiarism and AI-detection service |
-| Uploaded files are fingerprinted, then discarded | Files kept in private storage with per-member access |
+| Uploaded files (up to 1 MB) sit in one private storage bucket; an API route checks team access with RLS and re-checks the SHA-256 on every download | Larger files, storage-level access policies, in-browser preview and a ledger entry per download |
 | Seeded users and projects | Real sign-ups (no real personal data used) |
 | Corner cases triggered on demand by an admin | Each person acts themselves; inactivity and review windows detected by scheduled jobs |
 | Agent cost from a made-up price list | The provider's real billing, debited from the AI reserve |
@@ -220,5 +220,5 @@ The README lists every simplification in full.
 - **Payouts are transparent inside the team.** The Round 2 design (sheet 5) said the sponsor sees all rows and each member sees their own. We decided
   a split nobody on the team can check is not a fair split, so active members see all of it.
 - **Split team rule added:** only people on the team when a milestone was submitted share in it.
-- **Not built:** per-viewer watermarking of the brief, file storage for uploads, and automatic detection of inactivity
+- **Not built:** per-viewer watermarking of the brief and automatic detection of inactivity
   (nudge at 5 days, inactive at 7). The exits and the sponsor's window are triggered from the demo controls instead.

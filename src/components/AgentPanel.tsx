@@ -58,8 +58,8 @@ function DraftCard({ draft }: { draft: AgentDraftView }) {
     <li className="rounded-md border border-border bg-background p-4 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{draft.title}</span>
-        <Pill tone="ai" className="capitalize">
-          {draft.agent} agent · owned by you
+        <Pill tone="ai">
+          {draft.agent.charAt(0).toUpperCase() + draft.agent.slice(1)} agent · owned by you
         </Pill>
         <Pill tone={pending ? "pending" : "verified"}>{pending ? "Draft, not a contribution yet" : "Approved"}</Pill>
         <span className="text-xs text-muted-foreground">

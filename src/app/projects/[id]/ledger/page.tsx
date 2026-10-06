@@ -53,10 +53,11 @@ export default async function LedgerPage({ params }: PageProps<"/projects/[id]/l
           database returned no entries.
         </p>
       ) : (
-        <div className="grid gap-5 xl:grid-cols-[1fr_17rem]">
+        <div className="flex flex-col gap-5">
+          {/* The table gets the full width so the hash column is always on screen. */}
           <LedgerTable rows={rows} />
 
-          <aside className="flex flex-col gap-5">
+          <aside className="order-first grid gap-5 md:grid-cols-2">
             <section className="rounded-lg border border-border bg-card p-4">
               <h2 className="text-sm font-semibold">Reviewed weights</h2>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -69,7 +70,8 @@ export default async function LedgerPage({ params }: PageProps<"/projects/[id]/l
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="font-medium">{w.name}</span>
                         <span className="text-xs text-muted-foreground">
-                          impact {w.impact} · {Math.round(w.weight * 100)}%
+                          impact {w.impact} · weight {Math.round(w.weight * 100)}% ·{" "}
+                          {Math.round(w.aiShare * 100)}% AI-assisted
                         </span>
                       </div>
                       <div className="mt-1 h-1.5 rounded-full bg-secondary">

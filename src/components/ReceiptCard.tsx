@@ -25,6 +25,7 @@ export function ReceiptCard({
         {payout.role === "student" && (
           <span className="text-xs text-muted-foreground">
             impact {payout.impact} · weight {Math.round(payout.weight * 100)}%
+            {monetary && ` · equal ${formatRupees(payout.equalPart)} + weighted ${formatRupees(payout.weightedPart)}`}
           </span>
         )}
         {payout.aiShare > 0 && <Pill tone="ai">{Math.round(payout.aiShare * 100)}% AI-assisted</Pill>}

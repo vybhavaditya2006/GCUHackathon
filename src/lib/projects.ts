@@ -137,6 +137,9 @@ function roleLabel(user: CurrentUser, isSponsor: boolean, membership: ProjectVie
     const role = membership.role === "expert" ? "Expert" : "Student";
     return membership.isLead ? `${role} (lead)` : role;
   }
+  if (membership?.status === "inactive") {
+    return "Inactive member";
+  }
   if (membership?.status === "invited") return "Invited";
   if (membership?.status === "exited") return "Former member";
   if (user.role === "admin") return "Admin";

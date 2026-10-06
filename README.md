@@ -142,6 +142,8 @@ Every mock is listed here with what production would use.
 | The research / coding agent reads the project summary, the brief and notes the member pastes in | Retrieval over this project's stored files only |
 | Matching falls back to a fixed-wording reason when the LLM is unavailable (labelled on the page) | Same fallback, plus retries and monitoring |
 | Uploaded files (up to 1 MB) are kept in one private Supabase Storage bucket; downloads go through an API route that checks team access with RLS and re-checks the SHA-256. Opening a file is not itself written to the ledger | Larger files with resumable uploads, storage-level access policies, in-browser preview, and an access-log entry per download |
+| An expert's own uploads are recorded and credited but not impact-scored (their pay is the charter's fixed expert share, and nobody reviews their own work) | A second expert or the sponsor reviews expert work, and the charter can weight it |
+| Every active member can open every file on the project; a new version is a whole new file linked to the one it builds on | Per-folder or per-file permissions by role, and line-level diffs and merges as in a code host |
 | Seeded contributions are records only: their fingerprints are hashes of a file name and there is no file to open | SHA-256 of the uploaded file in private storage |
 | Track record (`proven_skills`, `completed_projects`) is stored on the profile | Derived from reviewed ledger entries |
 | Credentials are `CREDENTIAL_ISSUED` ledger entries only | Signed, independently verifiable credentials |

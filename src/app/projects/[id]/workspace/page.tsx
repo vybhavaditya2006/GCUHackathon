@@ -134,7 +134,11 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
   const onCurrentCharter = activeMember && membership.charterVersion === charter?.version;
   const openForWork = (status: string) => status === "funded" || status === "rejected" || (status === "draft" && !paid);
   const openMilestones = milestones.filter((m) => openForWork(m.status));
-  const canUpload = onCurrentCharter && membership.role === "student" && openMilestones.length > 0;
+  // Students and experts both build things. A student's work is reviewed and weighted; an expert's is
+  // recorded and credited, and paid by the charter's fixed expert share (nobody scores their own work).
+  const isBuilder = onCurrentCharter && (membership.role === "student" || membership.role === "expert");
+  const canUpload = isBuilder && openMilestones.length > 0;
+  const byExpert = (uid: string) => team.some((t) => t.user_id === uid && t.role === "expert");
   const canReview = onCurrentCharter && membership.role === "expert";
   const canSubmit = onCurrentCharter && (membership.isLead || membership.role === "expert");
 
@@ -384,6 +388,8 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
                     <Pill tone={review.verdict === "approved" ? "verified" : "alert"}>
                       {review.verdict === "approved" ? `Approved, impact ${review.impact}` : review.verdict.replace("_", " ")}
                     </Pill>
+                  ) : byExpert(c.author_id) ? (
+                    <Pill tone="verified">Expert work: credited, paid by the expert share</Pill>
                   ) : (
                     <Pill tone="pending">Awaiting review</Pill>
                   )}
@@ -392,7 +398,7 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
                   {nameOf(c.author_id)} · Milestone {milestone?.position} · AI-use declaration: {c.ai_declaration}
                   {review?.notes ? ` · Reviewer: ${review.notes}` : ""}
                 </p>
-                {canReview && !review && milestone && openForWork(milestone.status) && (
+                {canReview && !review && c.author_id !== user.id && milestone && openForWork(milestone.status) && (
                   <ReviewForm contributionId={c.id} />
                 )}
               </li>
@@ -406,9 +412,15 @@ export default async function WorkspacePage({ params }: PageProps<"/projects/[id
         </p>
       </section>
 
-      {onCurrentCharter && membership.role === "student" && (
+      {isBuilder && (
         <section className="rounded-lg border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Add a contribution</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Notes, code, scripts, data or a packaged archive. To continue someone else&apos;s work, open their file
+            above, then upload yours as the next version: both stay on record and each author keeps their credit.
+            {membership.role === "expert" &&
+              " As the expert, your files are credited to you in the ledger; your pay is the charter's expert share, so they are not impact-scored."}
+          </p>
           {canUpload ? (
             <div className="mt-3">
               <UploadContributionForm

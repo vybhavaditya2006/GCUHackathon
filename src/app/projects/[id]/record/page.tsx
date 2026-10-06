@@ -67,7 +67,7 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
 
   // Read with the user's own session, so RLS decides what comes back.
   const db = await userDb();
-  const [contributionsRes, ledgerRes, escrowRes, chain, stored] = await Promise.all([
+  const [contributionsRes, ledgerRes, escrowRes, chain, stored, expertsRes] = await Promise.all([
     db
       .from("contributions")
       .select("id, milestone_id, title, artefact_name, artefact_hash, version, builds_on, author_id, ai_share, flagged, reviews(verdict, impact)")
@@ -77,6 +77,7 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
     db.from("escrows").select("amount, status, reference").eq("project_id", id),
     verify(),
     storedArtefacts(id),
+    db.from("memberships").select("user_id").eq("project_id", id).eq("role", "expert"),
   ]);
   const contributions = (contributionsRes.data ?? []) as ContributionRow[];
   const ledger = (ledgerRes.data ?? []) as LedgerEntry[];
@@ -119,10 +120,12 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
     .sort((a, b) => b.impact - a.impact);
   const totalImpact = people.reduce((sum, p) => sum + p.impact, 0);
 
-  // What the sponsor receives: approved work, latest version only (earlier versions stay in the workspace).
+  // What the sponsor receives: approved work plus the expert's own, latest version only
+  // (earlier versions stay in the workspace).
+  const experts = new Set((expertsRes.data ?? []).map((m) => m.user_id as string));
   const superseded = new Set(contributions.map((c) => c.builds_on).filter(Boolean));
   const deliverables = contributions.filter(
-    (c) => !superseded.has(c.id) && c.reviews.some((r) => r.verdict === "approved"),
+    (c) => !superseded.has(c.id) && (c.reviews.some((r) => r.verdict === "approved") || experts.has(c.author_id)),
   );
 
   const paid = charter ? isPaidModel(charter.model) : false;
@@ -211,7 +214,7 @@ export default async function RecordPage({ params }: PageProps<"/projects/[id]/r
           <Pill>Team only: sponsor and active members</Pill>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          The approved work, latest version of each piece. Every download is re-checked against the fingerprint the
+          The approved work and the expert&apos;s own, latest version of each piece. Every download is re-checked against the fingerprint the
           ledger recorded when it was uploaded.
         </p>
         <ul className="mt-3 flex flex-col divide-y divide-border text-sm">

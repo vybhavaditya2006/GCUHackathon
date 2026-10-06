@@ -3,8 +3,9 @@
 -- Tables, enums, RLS (default deny), the hash-chained ledger and the
 -- state-changing functions that write a change AND its ledger entry together.
 --
--- Run once in the Supabase SQL editor on a fresh project.
--- To start over, run supabase/reset.sql first, then this file, then seed.sql.
+-- Run in the Supabase SQL editor. Safe to re-run: it creates what is missing and
+-- replaces functions, triggers and policies; it never drops a table or its data.
+-- To start over completely, run supabase/reset.sql first.
 -- =============================================================================
 
 create schema if not exists extensions;
@@ -13,20 +14,20 @@ create extension if not exists pgcrypto with schema extensions;
 -- -----------------------------------------------------------------------------
 -- Enums
 -- -----------------------------------------------------------------------------
-create type public.user_role         as enum ('student', 'expert', 'sponsor', 'admin');
-create type public.member_role       as enum ('sponsor', 'expert', 'student');
-create type public.charter_model     as enum ('funded', 'stipend', 'knowledge_sharing', 'institutional_credit');
-create type public.membership_status as enum ('invited', 'active', 'inactive', 'exited');
-create type public.milestone_status  as enum ('draft', 'funded', 'submitted', 'accepted', 'rejected', 'disputed');
-create type public.escrow_status     as enum ('funded', 'released', 'frozen', 'refunded');
-create type public.review_verdict    as enum ('approved', 'changes_requested', 'rejected');
-create type public.dispute_status    as enum ('open', 'resolved');
-create type public.draft_status      as enum ('pending', 'approved', 'rejected');
+do $$ begin create type public.user_role as enum ('student', 'expert', 'sponsor', 'admin'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.member_role as enum ('sponsor', 'expert', 'student'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.charter_model as enum ('funded', 'stipend', 'knowledge_sharing', 'institutional_credit'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.membership_status as enum ('invited', 'active', 'inactive', 'exited'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.milestone_status as enum ('draft', 'funded', 'submitted', 'accepted', 'rejected', 'disputed'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.escrow_status as enum ('funded', 'released', 'frozen', 'refunded'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.review_verdict as enum ('approved', 'changes_requested', 'rejected'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.dispute_status as enum ('open', 'resolved'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.draft_status as enum ('pending', 'approved', 'rejected'); exception when duplicate_object then null; end $$;
 
 -- -----------------------------------------------------------------------------
 -- Tables
 -- -----------------------------------------------------------------------------
-create table public.profiles (
+create table if not exists public.profiles (
   id                 uuid primary key references auth.users (id) on delete cascade,
   full_name          text not null,
   role               public.user_role not null,
@@ -44,7 +45,7 @@ create table public.profiles (
   created_at         timestamptz not null default now()
 );
 
-create table public.projects (
+create table if not exists public.projects (
   id                uuid primary key default gen_random_uuid(),
   sponsor_id        uuid not null references public.profiles (id),
   title             text not null,
@@ -62,13 +63,13 @@ create table public.projects (
 );
 
 -- Separate table so RLS can lock the confidential brief on its own.
-create table public.project_briefs (
+create table if not exists public.project_briefs (
   project_id uuid primary key references public.projects (id) on delete cascade,
   content    text not null,
   updated_at timestamptz not null default now()
 );
 
-create table public.charters (
+create table if not exists public.charters (
   id           uuid primary key default gen_random_uuid(),
   project_id   uuid not null references public.projects (id) on delete cascade,
   version      int not null check (version >= 1),
@@ -80,7 +81,7 @@ create table public.charters (
   unique (project_id, version)
 );
 
-create table public.memberships (
+create table if not exists public.memberships (
   id                 uuid primary key default gen_random_uuid(),
   project_id         uuid not null references public.projects (id) on delete cascade,
   user_id            uuid not null references public.profiles (id) on delete cascade,
@@ -96,7 +97,7 @@ create table public.memberships (
   unique (project_id, user_id)
 );
 
-create table public.milestones (
+create table if not exists public.milestones (
   id                  uuid primary key default gen_random_uuid(),
   project_id          uuid not null references public.projects (id) on delete cascade,
   position            int not null default 1,
@@ -111,7 +112,7 @@ create table public.milestones (
   rejection_criterion text                       -- a rejection must cite a criterion
 );
 
-create table public.contributions (
+create table if not exists public.contributions (
   id             uuid primary key default gen_random_uuid(),
   project_id     uuid not null references public.projects (id) on delete cascade,
   milestone_id   uuid not null references public.milestones (id) on delete cascade,
@@ -128,7 +129,7 @@ create table public.contributions (
   created_at     timestamptz not null default now()
 );
 
-create table public.reviews (
+create table if not exists public.reviews (
   id              uuid primary key default gen_random_uuid(),
   contribution_id uuid not null references public.contributions (id) on delete cascade,
   reviewer_id     uuid not null references public.profiles (id),
@@ -139,7 +140,7 @@ create table public.reviews (
   created_at      timestamptz not null default now()
 );
 
-create table public.escrows (
+create table if not exists public.escrows (
   id           uuid primary key default gen_random_uuid(),
   project_id   uuid not null references public.projects (id) on delete cascade,
   milestone_id uuid not null unique references public.milestones (id) on delete cascade,
@@ -150,7 +151,7 @@ create table public.escrows (
   updated_at   timestamptz not null default now()
 );
 
-create table public.payouts (
+create table if not exists public.payouts (
   id              uuid primary key default gen_random_uuid(),
   project_id      uuid not null references public.projects (id) on delete cascade,
   milestone_id    uuid not null references public.milestones (id) on delete cascade,
@@ -164,7 +165,7 @@ create table public.payouts (
   unique (milestone_id, user_id)
 );
 
-create table public.disputes (
+create table if not exists public.disputes (
   id              uuid primary key default gen_random_uuid(),
   project_id      uuid not null references public.projects (id) on delete cascade,
   milestone_id    uuid references public.milestones (id) on delete cascade,
@@ -178,7 +179,7 @@ create table public.disputes (
   resolved_at     timestamptz
 );
 
-create table public.agent_drafts (
+create table if not exists public.agent_drafts (
   id              uuid primary key default gen_random_uuid(),
   project_id      uuid not null references public.projects (id) on delete cascade,
   milestone_id    uuid references public.milestones (id) on delete set null,
@@ -200,9 +201,9 @@ create table public.agent_drafts (
 -- -----------------------------------------------------------------------------
 -- Ledger: append-only, hash-chained
 -- -----------------------------------------------------------------------------
-create sequence public.ledger_seq_seq;
+create sequence if not exists public.ledger_seq_seq;
 
-create table public.ledger (
+create table if not exists public.ledger (
   seq          bigint primary key,
   ts           timestamptz not null,
   project_id   uuid references public.projects (id),
@@ -221,10 +222,10 @@ create table public.ledger (
     'BRIEF_VIEWED', 'CORRECTION'))
 );
 
-create index ledger_project_idx on public.ledger (project_id, seq);
-create index memberships_user_idx on public.memberships (user_id);
-create index contributions_milestone_idx on public.contributions (milestone_id);
-create index reviews_contribution_idx on public.reviews (contribution_id);
+create index if not exists ledger_project_idx on public.ledger (project_id, seq);
+create index if not exists memberships_user_idx on public.memberships (user_id);
+create index if not exists contributions_milestone_idx on public.contributions (milestone_id);
+create index if not exists reviews_contribution_idx on public.reviews (contribution_id);
 
 -- hash = sha256(prev_hash | seq | epoch(ts) | actor | on_behalf_of | event | payload::text)
 -- One implementation, in SQL, used by both append and verify.
@@ -323,10 +324,12 @@ begin
 end;
 $$;
 
+drop trigger if exists ledger_append_only on public.ledger;
 create trigger ledger_append_only
   before update or delete on public.ledger
   for each row execute function public.ledger_block_change();
 
+drop trigger if exists ledger_no_truncate on public.ledger;
 create trigger ledger_no_truncate
   before truncate on public.ledger
   for each statement execute function public.ledger_block_change();
@@ -406,48 +409,61 @@ grant all on
   public.disputes, public.agent_drafts, public.ledger
 to service_role;
 
+drop policy if exists profiles_read on public.profiles;
 create policy profiles_read on public.profiles
   for select to authenticated using (true);
 
+drop policy if exists projects_read on public.projects;
 create policy projects_read on public.projects
   for select to anon, authenticated using (true);
 
+drop policy if exists charters_read on public.charters;
 create policy charters_read on public.charters
   for select to anon, authenticated using (true);
 
+drop policy if exists milestones_read on public.milestones;
 create policy milestones_read on public.milestones
   for select to anon, authenticated using (true);
 
+drop policy if exists briefs_read on public.project_briefs;
 create policy briefs_read on public.project_briefs
   for select to authenticated using (public.can_read_brief(project_id));
 
+drop policy if exists memberships_read on public.memberships;
 create policy memberships_read on public.memberships
   for select to authenticated
   using (user_id = auth.uid() or public.is_project_member(project_id) or public.is_admin());
 
+drop policy if exists contributions_read on public.contributions;
 create policy contributions_read on public.contributions
   for select to authenticated using (public.is_project_member(project_id) or public.is_admin());
 
+drop policy if exists reviews_read on public.reviews;
 create policy reviews_read on public.reviews
   for select to authenticated
   using (public.is_admin() or exists (
     select 1 from public.contributions c
     where c.id = contribution_id and public.is_project_member(c.project_id)));
 
+drop policy if exists escrows_read on public.escrows;
 create policy escrows_read on public.escrows
   for select to authenticated using (public.is_project_member(project_id) or public.is_admin());
 
 -- Users see their own payouts; the sponsor sees their project's.
+drop policy if exists payouts_read on public.payouts;
 create policy payouts_read on public.payouts
   for select to authenticated
   using (user_id = auth.uid() or public.is_project_sponsor(project_id) or public.is_admin());
 
+drop policy if exists disputes_read on public.disputes;
 create policy disputes_read on public.disputes
   for select to authenticated using (public.is_project_member(project_id) or public.is_admin());
 
+drop policy if exists agent_drafts_read on public.agent_drafts;
 create policy agent_drafts_read on public.agent_drafts
   for select to authenticated using (owner_id = auth.uid() or public.is_admin());
 
+drop policy if exists ledger_read on public.ledger;
 create policy ledger_read on public.ledger
   for select to authenticated using (public.is_project_member(project_id) or public.is_admin());
 

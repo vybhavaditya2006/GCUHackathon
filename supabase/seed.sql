@@ -26,6 +26,10 @@
 -- One transaction: if anything fails, nothing is wiped.
 begin;
 
+-- ---- helpers: a normal schema (no temp objects), created first and dropped at the end ----
+drop schema if exists seed_tmp cascade;
+create schema seed_tmp;
+
 -- ---- wipe ------------------------------------------------------------------
 alter table public.ledger disable trigger ledger_no_truncate;
 truncate table
@@ -36,10 +40,6 @@ truncate table
 alter table public.ledger enable trigger ledger_no_truncate;
 alter sequence public.ledger_seq_seq restart with 1;
 delete from auth.users where email like '%@charter.test';
-
--- ---- helpers: a normal schema (no temp objects), dropped again at the end ----
-drop schema if exists seed_tmp cascade;
-create schema seed_tmp;
 
 -- Story day p_day at p_time, India time. Day 0 = project posted = 5 Oct 2026.
 create or replace function seed_tmp.at(p_day int, p_time time) returns timestamptz

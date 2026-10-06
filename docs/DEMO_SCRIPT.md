@@ -5,9 +5,9 @@ Every page in this script is built. Rehearse it once with `npm run demo:dryrun` 
 
 ## Before the panel arrives (checklist)
 
-- [ ] Reset the data: `npm run db:bundle`, then paste `supabase/paste_me.sql` into the Supabase SQL editor and Run.
-      The editor may show `schema "seed_tmp" does not exist` even though the reset worked. Check in the app instead:
-      Milestone 1 is "submitted" and the Ledger page's Verify says 46 entries.
+- [ ] Reset the data: `npm run db:bundle`, then paste `supabase/paste_2_seed.sql` into an empty Supabase SQL editor tab
+      and Run (paste `supabase/paste_1_schema.sql` first if any migration changed). The result row shows 46 ledger
+      entries and `chain_ok = true`. Confirm in the app: Milestone 1 is "submitted" and the Ledger page's Verify says 46 entries.
 - [ ] `npm run dev` is running and `http://localhost:3000/login` opens.
 - [ ] Open these tabs, each logged in (use separate browser profiles or a private window per person; password `demo1234`;
       the login page has click-to-fill buttons for all of them):

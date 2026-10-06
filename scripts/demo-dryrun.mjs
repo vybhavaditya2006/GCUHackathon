@@ -6,7 +6,7 @@
 //   npm run demo:dryrun
 //
 // It needs a freshly seeded database and it CHANGES demo state: afterwards, run
-// "npm run db:bundle" and paste supabase/paste_me.sql into the Supabase SQL editor to reset.
+// "npm run db:bundle" and paste supabase/paste_2_seed.sql into the Supabase SQL editor to reset.
 // It also makes four real LLM calls.
 import { readFileSync } from "node:fs";
 import { createServerClient } from "@supabase/ssr";
